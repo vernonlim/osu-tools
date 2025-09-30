@@ -130,18 +130,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
             bool hidden = appliedMods.Value.Any(x => x is ModHidden);
             flowContainer.AddRange(new[]
             {
-                new ObjectInspectorDifficultyValue("Position", (hitObject.BaseObject as OsuHitObject)!.StackedPosition),
-                new ObjectInspectorDifficultyValue("Strain Time", hitObject.StrainTime),
-                new ObjectInspectorDifficultyValue("Doubletapness", hitObject.GetDoubletapness((OsuDifficultyHitObject)hitObject.Next(0))),
-                new ObjectInspectorDifficultyValue("Lazy Jump Dist", hitObject.LazyJumpDistance),
-                new ObjectInspectorDifficultyValue("Min Jump Dist", hitObject.MinimumJumpDistance),
-                new ObjectInspectorDifficultyValue("Min Jump Time", hitObject.MinimumJumpTime),
-
-                new ObjectInspectorDifficultyValue("Aim Difficulty", AimEvaluator.EvaluateDifficultyOf(hitObject, true)),
-                new ObjectInspectorDifficultyValue("Aim Difficulty (w/o sliders)", AimEvaluator.EvaluateDifficultyOf(hitObject, false)),
-                new ObjectInspectorDifficultyValue("Speed Difficulty", SpeedEvaluator.EvaluateDifficultyOf(hitObject, appliedMods.Value)),
-                new ObjectInspectorDifficultyValue("Rhythm Diff", osu.Game.Rulesets.Osu.Difficulty.Evaluators.RhythmEvaluator.EvaluateDifficultyOf(hitObject)),
-                new ObjectInspectorDifficultyValue(hidden ? "FLHD Difficulty" : "Flashlight Diff", FlashlightEvaluator.EvaluateDifficultyOf(hitObject, hidden)),
+                new ObjectInspectorDifficultyValue("Position", (hitObject.BaseObject as OsuHitObject)!.StackedPosition)
             });
 
             if (hitObject.Angle is not null)
@@ -193,8 +182,23 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
         {
             flowContainer.AddRange(new[]
             {
-                new ObjectInspectorDifficultyValue("Strain Time", hitObject.StrainTime),
-                new ObjectInspectorDifficultyValue("Normalized Position", hitObject.NormalizedPosition)
+                new ObjectInspectorDifficultyValue("Pattern", hitObject.MovementData.NotePattern.ToString()),
+                new ObjectInspectorDifficultyValue("Action Probability", hitObject.MovementData.ActionProbability),
+                new ObjectInspectorDifficultyValue("Precision", hitObject.MovementData.NotePrecision ?? -1.0),
+                new ObjectInspectorDifficultyValue("Time", hitObject.StartTime),
+                new ObjectInspectorDifficultyValue("Position", hitObject.Position),
+                new ObjectInspectorDifficultyValue("Catcher Width", hitObject.CatcherWidth),
+                new ObjectInspectorDifficultyValue("Delta Position", hitObject.DeltaPosition),
+                new ObjectInspectorDifficultyValue("Delta Time", hitObject.DeltaTime),
+                new ObjectInspectorDifficultyValue("Is Stack?", hitObject.MovementData.IsStack ? "Yes" : "No"),
+                new ObjectInspectorDifficultyValue("Is Break?", hitObject.MovementData.IsBreak ? "Yes" : "No"),
+                new ObjectInspectorDifficultyValue("Left Note Border", hitObject.LeftNoteBorder),
+                new ObjectInspectorDifficultyValue("Right Note Border", hitObject.RightNoteBorder),
+                new ObjectInspectorDifficultyValue("Left Catcher Position", hitObject.MovementData.LeftCatcherPosition),
+                new ObjectInspectorDifficultyValue("Right Catcher Position", hitObject.MovementData.RightCatcherPosition),
+                new ObjectInspectorDifficultyValue("Left Standing Position", hitObject.MovementData.LeftStandingPosition ?? -1),
+                new ObjectInspectorDifficultyValue("Right Standing Position", hitObject.MovementData.RightStandingPosition ?? -1),
+                new ObjectInspectorDifficultyValue("Direction", hitObject.IsMovingRight ? "Right" : "Left")
             });
         }
     }
