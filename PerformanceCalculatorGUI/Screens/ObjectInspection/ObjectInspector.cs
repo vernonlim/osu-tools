@@ -15,10 +15,13 @@ using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Overlays;
 using osu.Game.Rulesets;
+using osu.Game.Rulesets.Catch.Beatmaps;
+using osu.Game.Rulesets.Catch.Objects;
 using osu.Game.Rulesets.Catch.UI;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Edit;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.UI;
 using osu.Game.Rulesets.Taiko.UI;
 using osu.Game.Rulesets.UI;
@@ -275,22 +278,32 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
 
             double? seekTo = null;
 
-            if (e.Key == Key.Left)
+            if (e.Key == Key.Left || e.Key == Key.Right)
             {
-                seekTo = playableBeatmap.HitObjects
-                                        .LastOrDefault(x => x.StartTime < clock.CurrentTime)?
-                                        .StartTime;
+                IEnumerable<HitObject> hitObjects = ruleset.Value.ShortName switch
+                {
+                    "fruits" => CatchBeatmap.GetPalpableObjects(playableBeatmap.HitObjects)
+                                            .Where(o => o is not (TinyDroplet or Banana)),
+                    _ => playableBeatmap.HitObjects,
+                };
 
-                // slight leeway to make going back beyond just one object possible when the clock is running
-                if (clock.IsRunning)
-                    seekTo -= 100;
-            }
+                if (e.Key == Key.Left)
+                {
+                    seekTo = hitObjects
+                             .LastOrDefault(x => x.StartTime < clock.CurrentTime)?
+                             .StartTime;
 
-            if (e.Key == Key.Right)
-            {
-                seekTo = playableBeatmap.HitObjects
-                                        .FirstOrDefault(x => x.StartTime > clock.CurrentTime)?
-                                        .StartTime;
+                    // slight leeway to make going back beyond just one object possible when the clock is running
+                    if (clock.IsRunning)
+                        seekTo -= 100;
+                }
+
+                if (e.Key == Key.Right)
+                {
+                    seekTo = hitObjects
+                             .FirstOrDefault(x => x.StartTime > clock.CurrentTime)?
+                             .StartTime;
+                }
             }
 
             if (seekTo != null)
