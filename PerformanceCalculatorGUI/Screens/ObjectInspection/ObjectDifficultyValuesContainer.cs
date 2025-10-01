@@ -200,7 +200,8 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Right Standing Position", hitObject.MovementData.RightStandingPosition ?? -1),
                 new ObjectInspectorDifficultyValue("Direction", hitObject.IsMovingRight ? "Right" : "Left"),
                 new ObjectInspectorDifficultyValue("PrevToNextDistance", hitObject.MovementData.PrevToNextDistance),
-                new ObjectInspectorDifficultyValue("ExpectedHyperdashSpeed", hitObject.MovementData.ExpectedHyperdashSpeed),
+                new ObjectInspectorDifficultyValue("MinimalHyperdashSpeed", hitObject.MovementData.MinimalHyperdashSpeed),
+                new ObjectInspectorDifficultyValue("AverageHyperdashSpeed", hitObject.MovementData.AverageHyperdashSpeed),
                 new ObjectInspectorDifficultyValue("PerfectHyperdashSpeed", hitObject.MovementData.PerfectHyperdashSpeed)
             });
         }
