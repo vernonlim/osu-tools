@@ -186,7 +186,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Action Probability", hitObject.MovementData.ActionProbability),
                 new ObjectInspectorDifficultyValue("Precision", hitObject.MovementData.NotePrecision is null ? "Infinity" : $"{hitObject.MovementData.NotePrecision:0.00}"),
                 new ObjectInspectorDifficultyValue("Aim", hitObject.MovementData.NoteAim is null ? "Infinity" : $"{hitObject.MovementData.NoteAim:0.00}"),
-                new ObjectInspectorDifficultyValue("Speed", hitObject.MovementData.NoteSpeed == 0 ? "Zero" : $"{hitObject.MovementData.NoteSpeed:0.00}"),
+                new ObjectInspectorDifficultyValue("Speed", hitObject.MovementData.NoteSpeed),
                 new ObjectInspectorDifficultyValue("Time", hitObject.StartTime),
                 new ObjectInspectorDifficultyValue("Position", hitObject.Position),
                 new ObjectInspectorDifficultyValue("Catcher Width", hitObject.CatcherWidth),
@@ -204,7 +204,8 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("PrevToNextDistance", hitObject.MovementData.PrevToNextDistance),
                 new ObjectInspectorDifficultyValue("MinimalHyperdashSpeed", hitObject.MovementData.MinimalHyperdashSpeed),
                 new ObjectInspectorDifficultyValue("AverageHyperdashSpeed", hitObject.MovementData.AverageHyperdashSpeed),
-                new ObjectInspectorDifficultyValue("PerfectHyperdashSpeed", hitObject.MovementData.PerfectHyperdashSpeed)
+                new ObjectInspectorDifficultyValue("PerfectHyperdashSpeed", hitObject.MovementData.PerfectHyperdashSpeed),
+                new ObjectInspectorDifficultyValue("AllActionIndex", hitObject.MovementData.AllActionIndex)
             });
         }
     }
