@@ -204,8 +204,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("PrevToNextDistance", hitObject.MovementData.PrevToNextDistance),
                 new ObjectInspectorDifficultyValue("MinimalHyperdashSpeed", hitObject.MovementData.MinimalHyperdashSpeed),
                 new ObjectInspectorDifficultyValue("AverageHyperdashSpeed", hitObject.MovementData.AverageHyperdashSpeed),
-                new ObjectInspectorDifficultyValue("PerfectHyperdashSpeed", hitObject.MovementData.PerfectHyperdashSpeed),
-                new ObjectInspectorDifficultyValue("AllActionIndex", hitObject.MovementData.AllActionIndex)
+                new ObjectInspectorDifficultyValue("PerfectHyperdashSpeed", hitObject.MovementData.PerfectHyperdashSpeed)
             });
         }
     }
