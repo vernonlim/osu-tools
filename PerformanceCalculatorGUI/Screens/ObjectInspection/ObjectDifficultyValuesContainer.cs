@@ -182,7 +182,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
         {
             flowContainer.AddRange(new[]
             {
-                new ObjectInspectorDifficultyValue("Pattern", hitObject.MovementData.NotePattern.ToString()),
+                new ObjectInspectorDifficultyValue("Pattern", hitObject.MovementData.DisplayPattern.ToString()),
                 new ObjectInspectorDifficultyValue("Action Probability", hitObject.MovementData.ActionProbability),
                 new ObjectInspectorDifficultyValue("Precision", hitObject.MovementData.NotePrecision is null ? "Infinity" : $"{hitObject.MovementData.NotePrecision:0.00}"),
                 new ObjectInspectorDifficultyValue("Aim", hitObject.MovementData.NoteAim is null ? "Infinity" : $"{hitObject.MovementData.NoteAim:0.00}"),
@@ -200,11 +200,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Right Catcher Position", hitObject.MovementData.RightCatcherPosition),
                 new ObjectInspectorDifficultyValue("Left Standing Position", hitObject.MovementData.LeftStandingPosition ?? -1),
                 new ObjectInspectorDifficultyValue("Right Standing Position", hitObject.MovementData.RightStandingPosition ?? -1),
-                new ObjectInspectorDifficultyValue("Direction", hitObject.IsMovingRight ? "Right" : "Left"),
-                new ObjectInspectorDifficultyValue("PrevToNextDistance", hitObject.MovementData.PrevToNextDistance),
-                new ObjectInspectorDifficultyValue("MinimalHyperdashSpeed", hitObject.MovementData.MinimalHyperdashSpeed),
-                new ObjectInspectorDifficultyValue("AverageHyperdashSpeed", hitObject.MovementData.AverageHyperdashSpeed),
-                new ObjectInspectorDifficultyValue("PerfectHyperdashSpeed", hitObject.MovementData.PerfectHyperdashSpeed)
+                new ObjectInspectorDifficultyValue("Direction", hitObject.IsMovingRight ? "Right" : "Left")
             });
         }
     }
