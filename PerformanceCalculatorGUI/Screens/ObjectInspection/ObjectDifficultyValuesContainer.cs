@@ -189,6 +189,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Aim", hitObject.MovementData.NoteAim is null ? "Infinity" : $"{hitObject.MovementData.NoteAim:0.00}"),
                 new ObjectInspectorDifficultyValue("Speed", hitObject.MovementData.NoteSpeed),
                 new ObjectInspectorDifficultyValue("Time", hitObject.StartTime),
+                new ObjectInspectorDifficultyValue("Effective Time", hitObject.MovementData.EffectiveTime),
                 new ObjectInspectorDifficultyValue("Position", hitObject.Position),
                 new ObjectInspectorDifficultyValue("Catcher Width", hitObject.CatcherWidth),
                 new ObjectInspectorDifficultyValue("Delta Position", hitObject.DeltaPosition),
