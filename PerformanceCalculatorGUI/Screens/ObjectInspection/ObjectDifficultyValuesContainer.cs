@@ -196,6 +196,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Delta Time", hitObject.DeltaTime),
                 new ObjectInspectorDifficultyValue("Is Stack?", hitObject.MovementData.IsStack ? "Yes" : "No"),
                 new ObjectInspectorDifficultyValue("Is Break?", hitObject.MovementData.IsBreak ? "Yes" : "No"),
+                new ObjectInspectorDifficultyValue("Is HyperWalk?", hitObject.MovementData.IsHyperWalk ? "Yes" : "No"),
                 new ObjectInspectorDifficultyValue("Left Note Border", hitObject.LeftNoteBorder),
                 new ObjectInspectorDifficultyValue("Right Note Border", hitObject.RightNoteBorder),
                 new ObjectInspectorDifficultyValue("Left Catcher Position", hitObject.MovementData.LeftCatcherPosition),
