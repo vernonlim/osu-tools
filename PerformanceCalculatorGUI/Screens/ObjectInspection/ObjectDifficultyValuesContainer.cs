@@ -184,6 +184,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
             {
                 new ObjectInspectorDifficultyValue("Pattern", hitObject.MovementData.DisplayPattern.ToString()),
                 new ObjectInspectorDifficultyValue("Real Pattern", hitObject.MovementData.NotePattern.ToString()),
+                new ObjectInspectorDifficultyValue("Key", hitObject.MovementData.KeyPress.ToString()),
                 new ObjectInspectorDifficultyValue("Action Probability", hitObject.MovementData.ActionProbability),
                 new ObjectInspectorDifficultyValue("Precision", hitObject.MovementData.NotePrecision is null ? "Infinity" : $"{hitObject.MovementData.NotePrecision:0.00}"),
                 new ObjectInspectorDifficultyValue("Aim", hitObject.MovementData.NoteAim is null ? "Infinity" : $"{hitObject.MovementData.NoteAim:0.00}"),
