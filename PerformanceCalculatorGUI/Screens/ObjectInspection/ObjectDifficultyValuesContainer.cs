@@ -207,8 +207,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Direction", hitObject.IsMovingRight ? "Right" : "Left"),
                 new ObjectInspectorDifficultyValue("S.Direction", hitObject.SignificantMovementDirection.ToString()),
                 new ObjectInspectorDifficultyValue("PLSR", hitObject.MovementData.PartialLocalStarRating),
-                new ObjectInspectorDifficultyValue("LSR", hitObject.MovementData.LocalStarRating),
-                new ObjectInspectorDifficultyValue("SpeedWeight", hitObject.MovementData.SpeedWeight)
+                new ObjectInspectorDifficultyValue("LSR", hitObject.MovementData.LocalStarRating)
             });
         }
     }
