@@ -194,22 +194,22 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Speed", hitObject.MovementData.NoteSpeed),
                 new ObjectInspectorDifficultyValue("Alt. Speed", hitObject.MovementData.AlternatingSpeed),
                 new ObjectInspectorDifficultyValue("S. Dir. Speed", hitObject.MovementData.SameDirectionSpeed),
+                new ObjectInspectorDifficultyValue("PLSR", hitObject.MovementData.PartialLocalStarRating),
+                new ObjectInspectorDifficultyValue("LSR", hitObject.MovementData.LocalStarRating),
                 new ObjectInspectorDifficultyValue("Time", hitObject.StartTime),
                 new ObjectInspectorDifficultyValue("Effective Time", hitObject.MovementData.EffectiveTime),
                 new ObjectInspectorDifficultyValue("Position", hitObject.Position),
                 new ObjectInspectorDifficultyValue("Catcher Width", hitObject.CatcherWidth),
                 new ObjectInspectorDifficultyValue("Delta Position", hitObject.DeltaPosition),
                 new ObjectInspectorDifficultyValue("Delta Time", hitObject.DeltaTime),
+                new ObjectInspectorDifficultyValue("Direction", hitObject.IsMovingRight ? "Right" : "Left"),
+                new ObjectInspectorDifficultyValue("S.Direction", hitObject.SignificantMovementDirection.ToString()),
                 new ObjectInspectorDifficultyValue("Left Note Border", hitObject.LeftNoteBorder),
                 new ObjectInspectorDifficultyValue("Right Note Border", hitObject.RightNoteBorder),
                 new ObjectInspectorDifficultyValue("Left Catcher Position", hitObject.MovementData.LeftCatcherPosition),
                 new ObjectInspectorDifficultyValue("Right Catcher Position", hitObject.MovementData.RightCatcherPosition),
                 new ObjectInspectorDifficultyValue("Left Standing Position", hitObject.MovementData.LeftStandingPosition ?? -1),
-                new ObjectInspectorDifficultyValue("Right Standing Position", hitObject.MovementData.RightStandingPosition ?? -1),
-                new ObjectInspectorDifficultyValue("Direction", hitObject.IsMovingRight ? "Right" : "Left"),
-                new ObjectInspectorDifficultyValue("S.Direction", hitObject.SignificantMovementDirection.ToString()),
-                new ObjectInspectorDifficultyValue("PLSR", hitObject.MovementData.PartialLocalStarRating),
-                new ObjectInspectorDifficultyValue("LSR", hitObject.MovementData.LocalStarRating)
+                new ObjectInspectorDifficultyValue("Right Standing Position", hitObject.MovementData.RightStandingPosition ?? -1)
             });
         }
     }
