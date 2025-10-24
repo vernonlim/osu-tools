@@ -186,6 +186,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Real Pattern", hitObject.MovementData.NotePattern.ToString()),
                 new ObjectInspectorDifficultyValue("In Belt?", hitObject.MovementData.BeltBeginning is not null ? "Yes" : "No"),
                 new ObjectInspectorDifficultyValue("Key", hitObject.MovementData.KeyPress.ToString()),
+                new ObjectInspectorDifficultyValue("Reading", hitObject.ReadingData.CombinedReadingFactor),
                 new ObjectInspectorDifficultyValue("D.C. Weight", hitObject.MovementData.DirectionChangeWeight),
                 new ObjectInspectorDifficultyValue("P. Correction", hitObject.MovementData.PrecisionCorrection),
                 new ObjectInspectorDifficultyValue("Action Probability", hitObject.MovementData.ActionProbability),
