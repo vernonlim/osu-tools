@@ -195,6 +195,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Speed", hitObject.MovementData.NoteSpeed),
                 new ObjectInspectorDifficultyValue("Alt. Speed", hitObject.MovementData.AlternatingSpeed),
                 new ObjectInspectorDifficultyValue("S. Dir. Speed", hitObject.MovementData.SameDirectionSpeed),
+                new ObjectInspectorDifficultyValue("D. SDir. Speed", hitObject.MovementData.DelayedSameDirectionSpeed),
                 new ObjectInspectorDifficultyValue("PLSR", hitObject.MovementData.PartialLocalStarRating),
                 new ObjectInspectorDifficultyValue("LSR", hitObject.MovementData.LocalStarRating),
                 new ObjectInspectorDifficultyValue("Time", hitObject.StartTime),
