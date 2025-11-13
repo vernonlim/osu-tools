@@ -207,6 +207,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Catcher Width", hitObject.CatcherWidth),
                 new ObjectInspectorDifficultyValue("Delta Position", hitObject.DeltaPosition),
                 new ObjectInspectorDifficultyValue("Delta Time", hitObject.DeltaTime),
+                new ObjectInspectorDifficultyValue("Wiggle Count", hitObject.MovementData.StackWiggleCount),
                 new ObjectInspectorDifficultyValue("Direction", hitObject.IsMovingRight ? "Right" : "Left"),
                 new ObjectInspectorDifficultyValue("S.Direction", hitObject.SignificantMovementDirection.ToString()),
                 new ObjectInspectorDifficultyValue("Left Note Border", hitObject.LeftNoteBorder),
