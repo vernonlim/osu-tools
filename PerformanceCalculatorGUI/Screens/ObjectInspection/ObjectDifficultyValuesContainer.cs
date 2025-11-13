@@ -216,7 +216,9 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Left Catcher Position", hitObject.MovementData.LeftCatcherPosition),
                 new ObjectInspectorDifficultyValue("Right Catcher Position", hitObject.MovementData.RightCatcherPosition),
                 new ObjectInspectorDifficultyValue("Left Standing Position", hitObject.MovementData.LeftStandingPosition ?? -1),
-                new ObjectInspectorDifficultyValue("Right Standing Position", hitObject.MovementData.RightStandingPosition ?? -1)
+                new ObjectInspectorDifficultyValue("Right Standing Position", hitObject.MovementData.RightStandingPosition ?? -1),
+                new ObjectInspectorDifficultyValue("F. Left", hitObject.MovementData.FurthestLeft is null ? -1 : hitObject.MovementData.FurthestLeft.StartTime),
+                new ObjectInspectorDifficultyValue("F. Right", hitObject.MovementData.FurthestRight is null ? -1 : hitObject.MovementData.FurthestRight.StartTime)
             });
         }
     }
