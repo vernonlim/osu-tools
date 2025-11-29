@@ -64,6 +64,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
         private ObjectDifficultyValuesContainer difficultyValuesContainer;
         private IBeatmap playableBeatmap;
         private EditorBeatmap editorBeatmap;
+        private IReadOnlyList<HitObject> hitObjects;
 
         protected override bool BlockNonPositionalInput => true;
 
@@ -83,6 +84,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
         {
             var rulesetInstance = ruleset.Value.CreateInstance();
             var modifiedMods = mods.Value.Append(rulesetInstance.GetAutoplayMod()).ToList();
+            var playableBeatmap = processorBeatmap.GetPlayableBeatmap(ruleset.Value, modifiedMods);
 
             playableBeatmap = processorBeatmap.GetPlayableBeatmap(ruleset.Value, modifiedMods);
             processorBeatmap.LoadTrack();
@@ -97,6 +99,12 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
             dependencies.CacheAs(editorBeatmap);
 
             beatmap.Value = processorBeatmap;
+
+            hitObjects = ruleset.Value.ShortName switch
+            {
+                "fruits" => CatchBeatmap.GetPalpableObjects(playableBeatmap.HitObjects).Where(o => o is not (Banana or TinyDroplet)).ToList(),
+                _ => playableBeatmap.HitObjects,
+            };
 
             Timeline timeline;
 
@@ -278,32 +286,22 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
 
             double? seekTo = null;
 
-            if (e.Key == Key.Left || e.Key == Key.Right)
+            if (e.Key == Key.Left)
             {
-                IEnumerable<HitObject> hitObjects = ruleset.Value.ShortName switch
-                {
-                    "fruits" => CatchBeatmap.GetPalpableObjects(playableBeatmap.HitObjects)
-                                            .Where(o => o is not (TinyDroplet or Banana)),
-                    _ => playableBeatmap.HitObjects,
-                };
+                seekTo = hitObjects
+                         .LastOrDefault(x => x.StartTime < clock.CurrentTime)?
+                         .StartTime;
 
-                if (e.Key == Key.Left)
-                {
-                    seekTo = hitObjects
-                             .LastOrDefault(x => x.StartTime < clock.CurrentTime)?
-                             .StartTime;
+                // slight leeway to make going back beyond just one object possible when the clock is running
+                if (clock.IsRunning)
+                    seekTo -= 100;
+            }
 
-                    // slight leeway to make going back beyond just one object possible when the clock is running
-                    if (clock.IsRunning)
-                        seekTo -= 100;
-                }
-
-                if (e.Key == Key.Right)
-                {
-                    seekTo = hitObjects
-                             .FirstOrDefault(x => x.StartTime > clock.CurrentTime)?
-                             .StartTime;
-                }
+            if (e.Key == Key.Right)
+            {
+                seekTo = hitObjects
+                         .FirstOrDefault(x => x.StartTime > clock.CurrentTime)?
+                         .StartTime;
             }
 
             if (seekTo != null)
