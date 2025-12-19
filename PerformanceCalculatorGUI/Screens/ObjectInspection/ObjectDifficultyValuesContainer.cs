@@ -188,6 +188,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
         {
             flowContainer.AddRange(new[]
             {
+                new ObjectInspectorDifficultyValue("Combo", hitObject.DisplayData.NoteCombo),
                 new ObjectInspectorDifficultyValue("Pattern", hitObject.MovementData.OriginalPattern.ToString()),
                 new ObjectInspectorDifficultyValue("Real Pattern", hitObject.MovementData.NotePattern.ToString()),
                 new ObjectInspectorDifficultyValue("In Belt?", hitObject.MovementData.BeltBeginning is not null ? "Yes" : "No"),
