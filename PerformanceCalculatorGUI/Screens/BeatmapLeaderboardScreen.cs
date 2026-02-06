@@ -61,6 +61,12 @@ namespace PerformanceCalculatorGUI.Screens
         [Resolved]
         private SettingsManager configManager { get; set; } = null!;
 
+        [Resolved]
+        private OsuDifficultyTuningManager tuningManager { get; set; } = null!;
+
+        [Resolved]
+        private CatchDifficultyTuningManager catchTuningManager { get; set; } = null!;
+
         public override bool ShouldShowConfirmationDialogOnSwitch => false;
 
         [GeneratedRegex(@"osu\.ppy\.sh/(?:b|beatmapsets/\d+#\w+|beatmaps)/(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
@@ -238,7 +244,7 @@ namespace PerformanceCalculatorGUI.Screens
 
                 var plays = new List<SoloScoreInfo>();
 
-                var rulesetInstance = ruleset.Value.CreateInstance();
+                var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(ruleset.Value, tuningManager, catchTuningManager);
 
                 var working = ProcessorWorkingBeatmap.FromFileOrId(beatmap, cachePath: configManager.GetBindable<string>(Settings.CachePath).Value);
 
@@ -268,7 +274,8 @@ namespace PerformanceCalculatorGUI.Screens
 
                     var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
 
-                    var difficultyCalculator = rulesetInstance.CreateDifficultyCalculator(working);
+                    var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(ruleset.Value, working,
+                        tuningManager.Current.Value, catchTuningManager.Current.Value);
 
                     Mod[] mods = score.Mods.Select(x => x.ToMod(rulesetInstance)).ToArray();
 

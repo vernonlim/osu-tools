@@ -73,6 +73,12 @@ namespace PerformanceCalculatorGUI.Screens
         [Resolved]
         private RulesetStore rulesets { get; set; } = null!;
 
+        [Resolved]
+        private OsuDifficultyTuningManager tuningManager { get; set; } = null!;
+
+        [Resolved]
+        private CatchDifficultyTuningManager catchTuningManager { get; set; } = null!;
+
         public override bool ShouldShowConfirmationDialogOnSwitch => false;
 
         private const float username_container_height = 40;
@@ -285,7 +291,7 @@ namespace PerformanceCalculatorGUI.Screens
 
                 var plays = new List<ExtendedScore>();
                 var players = new List<APIUser>();
-                var rulesetInstance = ruleset.Value.CreateInstance();
+                var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(ruleset.Value, tuningManager, catchTuningManager);
 
                 foreach (string username in currentUsers)
                 {
@@ -328,7 +334,8 @@ namespace PerformanceCalculatorGUI.Screens
 
                             var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
 
-                            var difficultyCalculator = rulesetInstance.CreateDifficultyCalculator(working);
+                            var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(ruleset.Value, working,
+                                tuningManager.Current.Value, catchTuningManager.Current.Value);
                             var difficultyAttributes = difficultyCalculator.Calculate(mods);
                             var performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
                             if (performanceCalculator == null)

@@ -75,6 +75,12 @@ namespace PerformanceCalculatorGUI.Screens
         [Resolved]
         private SettingsManager configManager { get; set; } = null!;
 
+        [Resolved]
+        private OsuDifficultyTuningManager tuningManager { get; set; } = null!;
+
+        [Resolved]
+        private CatchDifficultyTuningManager catchTuningManager { get; set; } = null!;
+
         private const int settings_height = 40;
         private const int tabs_height = 20;
 
@@ -310,7 +316,7 @@ namespace PerformanceCalculatorGUI.Screens
 
             var apiScores = await apiManager.GetJsonFromApi<List<SoloScoreInfo>>($"users/{player.User.OnlineID}/scores/best?mode={ruleset.Value.ShortName}&limit=100").ConfigureAwait(false);
 
-            var rulesetInstance = ruleset.Value.CreateInstance();
+            var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(ruleset.Value, tuningManager, catchTuningManager);
 
             try
             {
@@ -326,7 +332,8 @@ namespace PerformanceCalculatorGUI.Screens
 
                         var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
 
-                        var difficultyCalculator = rulesetInstance.CreateDifficultyCalculator(working);
+                        var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(ruleset.Value, working,
+                            tuningManager.Current.Value, catchTuningManager.Current.Value);
                         var difficultyAttributes = difficultyCalculator.Calculate(mods);
                         var performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
 

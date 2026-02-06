@@ -53,6 +53,12 @@ namespace PerformanceCalculatorGUI.Screens
         [Resolved]
         private NotificationDisplay notificationDisplay { get; set; } = null!;
 
+        [Resolved]
+        private OsuDifficultyTuningManager tuningManager { get; set; } = null!;
+
+        [Resolved]
+        private CatchDifficultyTuningManager catchTuningManager { get; set; } = null!;
+
         private FillFlowContainer collectionList = null!;
         private CreateCollectionButton createCollectionButton = null!;
 
@@ -279,7 +285,8 @@ namespace PerformanceCalculatorGUI.Screens
                     if (score == null)
                         continue;
 
-                    var rulesetInstance = rulesets.GetRuleset(score.RulesetID)!.CreateInstance();
+                    var rulesetInfo = rulesets.GetRuleset(score.RulesetID)!;
+                    var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(rulesetInfo, tuningManager, catchTuningManager);
 
                     var working = ProcessorWorkingBeatmap.FromFileOrId(score.BeatmapID.ToString(), cachePath: configManager.GetBindable<string>(Settings.CachePath).Value);
 
@@ -289,7 +296,8 @@ namespace PerformanceCalculatorGUI.Screens
 
                     var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
 
-                    var difficultyCalculator = rulesetInstance.CreateDifficultyCalculator(working);
+                    var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(rulesetInfo, working,
+                        tuningManager.Current.Value, catchTuningManager.Current.Value);
                     var difficultyAttributes = difficultyCalculator.Calculate(mods);
                     var performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
                     if (performanceCalculator == null)
@@ -309,7 +317,8 @@ namespace PerformanceCalculatorGUI.Screens
                 {
                     foreach (var storedScore in currentCollection.Value.StoredScores)
                     {
-                        var rulesetInstance = rulesets.GetRuleset(storedScore.RulesetID)!.CreateInstance();
+                        var rulesetInfo = rulesets.GetRuleset(storedScore.RulesetID)!;
+                        var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(rulesetInfo, tuningManager, catchTuningManager);
 
                         var working = ProcessorWorkingBeatmap.FromFileOrId(storedScore.BeatmapID.ToString(), cachePath: configManager.GetBindable<string>(Settings.CachePath).Value);
 
@@ -321,7 +330,8 @@ namespace PerformanceCalculatorGUI.Screens
 
                         var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
 
-                        var difficultyCalculator = rulesetInstance.CreateDifficultyCalculator(working);
+                        var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(rulesetInfo, working,
+                            tuningManager.Current.Value, catchTuningManager.Current.Value);
                         var difficultyAttributes = difficultyCalculator.Calculate(mods);
                         var performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
                         if (performanceCalculator == null)

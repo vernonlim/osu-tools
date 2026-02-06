@@ -121,6 +121,12 @@ namespace PerformanceCalculatorGUI.Screens
         [Resolved]
         private APIManager apiManager { get; set; } = null!;
 
+        [Resolved]
+        private OsuDifficultyTuningManager tuningManager { get; set; } = null!;
+
+        [Resolved]
+        private CatchDifficultyTuningManager catchTuningManager { get; set; } = null!;
+
         [Cached]
         private OverlayColourProvider colourProvider = new OverlayColourProvider(OverlayColourScheme.Blue);
 
@@ -544,6 +550,9 @@ namespace PerformanceCalculatorGUI.Screens
             comboTextBox.Value.BindValueChanged(_ => debouncedCalculatePerformance());
             scoreTextBox.Value.BindValueChanged(_ => debouncedCalculatePerformance());
 
+            tuningManager.Current.BindValueChanged(_ => recalculateForTuning());
+            catchTuningManager.Current.BindValueChanged(_ => recalculateForTuning());
+
             fullScoreDataSwitch.Current.BindValueChanged(val => updateAccuracyParams(val.NewValue));
 
             addToCollectionButton.OnAdd += onAddToCollection;
@@ -697,13 +706,24 @@ namespace PerformanceCalculatorGUI.Screens
             beatmapDataContainer.Show();
         }
 
+        private void recalculateForTuning()
+        {
+            if (working is null)
+                return;
+
+            createCalculators();
+            calculateDifficulty();
+            calculatePerformance();
+        }
+
         private void createCalculators()
         {
             if (working is null)
                 return;
 
-            var rulesetInstance = ruleset.Value.CreateInstance();
-            difficultyCalculator.Value = RulesetHelper.GetExtendedDifficultyCalculator(ruleset.Value, working);
+            var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(ruleset.Value, tuningManager, catchTuningManager);
+            difficultyCalculator.Value = RulesetHelper.GetExtendedDifficultyCalculator(ruleset.Value, working,
+                tuningManager.Current.Value, catchTuningManager.Current.Value);
             performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
         }
 
