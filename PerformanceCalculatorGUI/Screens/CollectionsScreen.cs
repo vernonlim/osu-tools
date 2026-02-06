@@ -306,7 +306,10 @@ namespace PerformanceCalculatorGUI.Screens
                     var perfAttributes = performanceCalculator.Calculate(parsedScore.ScoreInfo, difficultyAttributes);
                     Schedule(() =>
                     {
-                        var scoreContainer = new ScoreContainer(new ExtendedScore(score, difficultyAttributes, perfAttributes));
+                        var scoreContainer = new ScoreContainer(
+                            new ExtendedScore(score, difficultyAttributes, perfAttributes),
+                            currentCollection.Value!.ExpectedPerformance,
+                            saveCurrentCollection);
                         scoreContainer.OnDelete += onScoreRemove;
 
                         scoresList.Add(scoreContainer);
@@ -340,7 +343,10 @@ namespace PerformanceCalculatorGUI.Screens
                         var perfAttributes = performanceCalculator.Calculate(parsedScore.ScoreInfo, difficultyAttributes);
                         Schedule(() =>
                         {
-                            var scoreContainer = new ScoreContainer(new ExtendedScore(soloScore, difficultyAttributes, perfAttributes, storedScore.Id));
+                            var scoreContainer = new ScoreContainer(
+                                new ExtendedScore(soloScore, difficultyAttributes, perfAttributes, storedScore.Id),
+                                currentCollection.Value!.ExpectedPerformance,
+                                saveCurrentCollection);
                             scoreContainer.OnDelete += onScoreRemove;
 
                             scoresList.Add(scoreContainer);
