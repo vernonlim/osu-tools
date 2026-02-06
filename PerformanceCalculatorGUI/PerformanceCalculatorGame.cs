@@ -60,6 +60,9 @@ namespace PerformanceCalculatorGUI
             var scoreCache = new ScoreCache();
             dependencies.CacheAs(scoreCache);
 
+            dependencies.CacheAs(new OsuDifficultyTuningManager());
+            dependencies.CacheAs(new CatchDifficultyTuningManager());
+
             AddRange(new Drawable[]
             {
                 new OsuContextMenuContainer
