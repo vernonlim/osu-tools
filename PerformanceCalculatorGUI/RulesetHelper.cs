@@ -12,11 +12,14 @@ using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mania.Objects;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Catch.Difficulty;
 using osu.Game.Rulesets.Osu;
+using osu.Game.Rulesets.Osu.Difficulty;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.Taiko;
 using osu.Game.Rulesets.Taiko.Objects;
+using PerformanceCalculatorGUI.Configuration;
 
 namespace PerformanceCalculatorGUI
 {
@@ -31,6 +34,30 @@ namespace PerformanceCalculatorGUI
                 2 => new ExtendedCatchDifficultyCalculator(ruleset, working),
                 3 => new ExtendedManiaDifficultyCalculator(ruleset, working),
                 _ => ruleset.CreateInstance().CreateDifficultyCalculator(working)
+            };
+        }
+
+        public static DifficultyCalculator GetExtendedDifficultyCalculator(RulesetInfo ruleset, IWorkingBeatmap working,
+                                                                           OsuDifficultyConstants? osuTuning, CatchDifficultyConstants? catchTuning)
+        {
+            return ruleset.OnlineID switch
+            {
+                0 => new ExtendedOsuDifficultyCalculator(ruleset, working, osuTuning),
+                1 => new ExtendedTaikoDifficultyCalculator(ruleset, working),
+                2 => new ExtendedCatchDifficultyCalculator(ruleset, working, catchTuning),
+                3 => new ExtendedManiaDifficultyCalculator(ruleset, working),
+                _ => ruleset.CreateInstance().CreateDifficultyCalculator(working)
+            };
+        }
+
+        public static Ruleset CreateRulesetWithTuning(RulesetInfo rulesetInfo,
+                                                      OsuDifficultyTuningManager osuTuning, CatchDifficultyTuningManager catchTuning)
+        {
+            return rulesetInfo.ShortName switch
+            {
+                "osu" => new OsuRuleset(osuTuning.Current.Value),
+                "fruits" => new CatchRuleset(catchTuning.Current.Value),
+                _ => rulesetInfo.CreateInstance()
             };
         }
 

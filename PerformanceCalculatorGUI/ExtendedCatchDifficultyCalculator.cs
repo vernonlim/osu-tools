@@ -17,8 +17,8 @@ namespace PerformanceCalculatorGUI
         private Skill[] skills = [];
         private DifficultyHitObject[] difficultyHitObjects = [];
 
-        public ExtendedCatchDifficultyCalculator(IRulesetInfo ruleset, IWorkingBeatmap beatmap)
-            : base(ruleset, beatmap)
+        public ExtendedCatchDifficultyCalculator(IRulesetInfo ruleset, IWorkingBeatmap beatmap, CatchDifficultyConstants? tuning = null)
+            : base(ruleset, beatmap, tuning)
         {
         }
 
