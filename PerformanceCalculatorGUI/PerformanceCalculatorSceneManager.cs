@@ -127,6 +127,7 @@ namespace PerformanceCalculatorGUI
                                             Spacing = new Vector2(5),
                                             Children = new Drawable[]
                                             {
+                                                new DifficultyTuningButton(),
                                                 rulesetSelector = new ToolbarRulesetSelector(),
                                                 new SettingsButton()
                                             }
