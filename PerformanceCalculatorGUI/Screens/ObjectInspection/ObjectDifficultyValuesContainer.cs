@@ -17,6 +17,7 @@ using osu.Game.Rulesets.Catch.Difficulty.Evaluators;
 using osu.Game.Rulesets.Catch.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Osu.Difficulty;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Objects;
@@ -139,11 +140,11 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Min Jump Dist", hitObject.MinimumJumpDistance),
                 new ObjectInspectorDifficultyValue("Min Jump Time", hitObject.MinimumJumpTime),
 
-                new ObjectInspectorDifficultyValue("Aim Difficulty", AimEvaluator.EvaluateDifficultyOf(hitObject, true)),
-                new ObjectInspectorDifficultyValue("Aim Difficulty (w/o sliders)", AimEvaluator.EvaluateDifficultyOf(hitObject, false)),
-                new ObjectInspectorDifficultyValue("Speed Difficulty", SpeedEvaluator.EvaluateDifficultyOf(hitObject, appliedMods.Value)),
-                new ObjectInspectorDifficultyValue("Rhythm Diff", osu.Game.Rulesets.Osu.Difficulty.Evaluators.RhythmEvaluator.EvaluateDifficultyOf(hitObject)),
-                new ObjectInspectorDifficultyValue(hidden ? "FLHD Difficulty" : "Flashlight Diff", FlashlightEvaluator.EvaluateDifficultyOf(hitObject, hidden)),
+                new ObjectInspectorDifficultyValue("Aim Difficulty", AimEvaluator.EvaluateDifficultyOf(hitObject, true, OsuDifficultyConstants.Default)),
+                new ObjectInspectorDifficultyValue("Aim Difficulty (w/o sliders)", AimEvaluator.EvaluateDifficultyOf(hitObject, false, OsuDifficultyConstants.Default)),
+                new ObjectInspectorDifficultyValue("Speed Difficulty", osu.Game.Rulesets.Osu.Difficulty.Evaluators.SpeedEvaluator.EvaluateDifficultyOf(hitObject, OsuDifficultyConstants.Default)),
+                new ObjectInspectorDifficultyValue("Rhythm Diff", osu.Game.Rulesets.Osu.Difficulty.Evaluators.RhythmEvaluator.EvaluateDifficultyOf(hitObject, OsuDifficultyConstants.Default)),
+                new ObjectInspectorDifficultyValue(hidden ? "FLHD Difficulty" : "Flashlight Diff", FlashlightEvaluator.EvaluateDifficultyOf(hitObject, hidden ? appliedMods.Value : [], OsuDifficultyConstants.Default)),
             });
 
             if (hitObject.Angle is not null)
@@ -200,16 +201,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
         {
             flowContainer.AddRange(new[]
             {
-                new ObjectInspectorDifficultyValue("Strain Time", hitObject.StrainTime),
-                new ObjectInspectorDifficultyValue("Normalized Position", hitObject.NormalizedPosition),
-                new ObjectInspectorDifficultyValue("Last Normalized Position", hitObject.LastNormalizedPosition),
-                new ObjectInspectorDifficultyValue("Player Position", hitObject.PlayerPosition),
-                new ObjectInspectorDifficultyValue("Last Player Position", hitObject.LastPlayerPosition),
-                new ObjectInspectorDifficultyValue("Distance Moved", hitObject.DistanceMoved),
-                new ObjectInspectorDifficultyValue("Exact Distance Moved", hitObject.ExactDistanceMoved),
-
-                // see https://github.com/ppy/osu/blob/a08f7327b11977f1de57b8a177bf26918ebfacda/osu.Game.Rulesets.Catch/Difficulty/Skills/Movement.cs#L36
-                new ObjectInspectorDifficultyValue("Movement Difficulty", MovementEvaluator.EvaluateDifficultyOf(hitObject, track.Rate)),
+                new ObjectInspectorDifficultyValue("Delta Time", hitObject.DeltaTime),
             });
         }
     }
