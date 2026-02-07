@@ -24,8 +24,8 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 {
     public class AutobalanceRunner
     {
-        private const int max_iterations = 5000;
-        private const double initial_temperature = 100.0;
+        private const int max_iterations = 1000;
+        private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
         private const double min_temperature = 0.001;
         private const double dataset_progress_portion = 0.05;
