@@ -25,9 +25,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
     public class AutobalanceRunner
     {
         private const int max_iterations = 5000;
-        private const int tpe_iterations = 100;        // TPE is more sample-efficient
-        private const int tpe_startup_trials = 50;     // Random exploration before TPE
-        private const AutobalanceLossType loss_type = AutobalanceLossType.Spearman;
+        private const int tpe_iterations = 4000;        // TPE is more sample-efficient
+        private const int tpe_startup_trials = 750;     // Random exploration before TPE
+        private const AutobalanceLossType loss_type = AutobalanceLossType.Mae;
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
         private const double min_temperature = 0.001;
@@ -437,7 +437,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 {
                     case AutobalanceLossType.Mae:
                         optimalScale = computeWeightedMedianScale(resultList);
-                        optimalScale = Math.Clamp(optimalScale, 0.1, 20.0);
+                        optimalScale = Math.Clamp(optimalScale, 0.01, 20.0);
                         loss = computeMae(resultList, optimalScale, count);
                         double rmseForMae = Math.Sqrt(computeMse(resultList, optimalScale, count));
                         Console.WriteLine($"MAE at it={it}, count={count}, scale={optimalScale:F4}: {loss:F2}, RMSE: {rmseForMae:F2}");
@@ -445,7 +445,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                     case AutobalanceLossType.Spearman:
                         // Spearman is scale-invariant, use MSE-optimal scale for final multiplier
-                        optimalScale = Math.Clamp(mseOptimalScale, 0.1, 20.0);
+                        optimalScale = Math.Clamp(mseOptimalScale, 0.01, 20.0);
                         loss = computeSpearmanLoss(resultList);
                         double maeForSpearman = computeMae(resultList, optimalScale, count);
                         double rmseForSpearman = Math.Sqrt(computeMse(resultList, optimalScale, count));
@@ -454,7 +454,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                     case AutobalanceLossType.Rmse:
                     default:
-                        optimalScale = Math.Clamp(mseOptimalScale, 0.1, 20.0);
+                        optimalScale = Math.Clamp(mseOptimalScale, 0.01, 20.0);
                         loss = computeMse(resultList, optimalScale, count);
                         double maeForRmse = computeMae(resultList, optimalScale, count);
                         Console.WriteLine($"RMSE at it={it}, count={count}, scale={optimalScale:F4}: {Math.Sqrt(loss):F2}, MAE: {maeForRmse:F2}");
