@@ -275,7 +275,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                 string key = scoreId.ToString();
 
-                if (!expectedPerformance.TryGetValue(key, out var expectedValues) || !tryGetExpectedValue(expectedValues, target, out double expectedValue))
+                if (!expectedPerformance.TryGetValue(key, out var expectedValues) || !TryGetExpectedValue(expectedValues, target, out double expectedValue))
                 {
                     reporter.Report(dataset_progress_portion * processed / totalScores, stage: "Loading scores", completed: processed, total: totalScores);
                     continue;
@@ -333,7 +333,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 {
                     processed++;
 
-                    if (!expectedPerformance.TryGetValue(storedScore.Id, out var expectedValues) || !tryGetExpectedValue(expectedValues, target, out double expectedValue))
+                    if (!expectedPerformance.TryGetValue(storedScore.Id, out var expectedValues) || !TryGetExpectedValue(expectedValues, target, out double expectedValue))
                     {
                         reporter.Report(dataset_progress_portion * processed / totalScores, stage: "Loading scores", completed: processed, total: totalScores);
                         continue;
@@ -429,7 +429,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             return tuning;
         }
 
-        private static bool tryGetExpectedValue(ExpectedPerformanceValues expectedValues, AutobalanceTarget target, out double expectedValue)
+        internal static bool TryGetExpectedValue(ExpectedPerformanceValues expectedValues, AutobalanceTarget target, out double expectedValue)
         {
             if (target == AutobalanceTarget.Total)
             {

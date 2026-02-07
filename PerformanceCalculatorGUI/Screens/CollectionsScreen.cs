@@ -28,6 +28,7 @@ using osu.Game.Overlays;
 using osu.Game.Overlays.Dialog;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.Catch.Difficulty;
+using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty;
 using osuTK;
@@ -364,7 +365,15 @@ namespace PerformanceCalculatorGUI.Screens
                     autobalanceTarget.Value = AutobalanceTarget.Total;
 
                 createAutobalanceParameterControls();
+
+                if (!autobalanceRunning)
+                    updateAutobalanceBaseline();
             }, true);
+            autobalanceTarget.BindValueChanged(_ =>
+            {
+                if (!autobalanceRunning)
+                    updateAutobalanceBaseline();
+            });
 
             loadCollectionList();
 
@@ -533,6 +542,9 @@ namespace PerformanceCalculatorGUI.Screens
                 {
                     updateSorting(sorting.Value);
                     loadingLayer.Hide();
+
+                    if (!autobalanceRunning)
+                        updateAutobalanceBaseline();
                 });
             }, TaskContinuationOptions.None);
         }
@@ -760,6 +772,132 @@ namespace PerformanceCalculatorGUI.Screens
             autobalanceStatusText.Text = autobalanceStage;
             autobalanceTimeText.Text = string.Empty;
             setAutobalanceProgress(0);
+        }
+
+        private void updateAutobalanceBaseline()
+        {
+            if (currentCollection.Value == null || !scoresList.Children.Any())
+            {
+                autobalanceStatusText.Text = "Ready";
+                return;
+            }
+
+            var expectedPerformance = currentCollection.Value.ExpectedPerformance;
+
+            if (expectedPerformance == null || expectedPerformance.Count == 0)
+            {
+                autobalanceStatusText.Text = "Ready";
+                return;
+            }
+
+            var target = autobalanceTarget.Value;
+            int targetRulesetId = autobalanceRuleset.Value == AutobalanceRuleset.Catch ? 2 : 0;
+            var pairs = new List<(double actual, double expected)>();
+
+            foreach (var container in scoresList.Children)
+            {
+                var score = container.Score;
+
+                if (score.SoloScore.RulesetID != targetRulesetId)
+                    continue;
+
+                string key = score.IsStoredScore ? score.StoredScoreId! : score.SoloScore.ID.ToString()!;
+
+                if (!expectedPerformance.TryGetValue(key, out var expectedValues))
+                    continue;
+
+                if (!AutobalanceRunner.TryGetExpectedValue(expectedValues, target, out double expectedValue))
+                    continue;
+
+                double? actualValue = getAutobalanceTargetValue(score.PerformanceAttributes, target);
+
+                if (actualValue == null)
+                    continue;
+
+                pairs.Add((actualValue.Value, expectedValue));
+            }
+
+            if (pairs.Count == 0)
+            {
+                autobalanceStatusText.Text = "Ready";
+                return;
+            }
+
+            double mse = pairs.Sum(p => (p.actual - p.expected) * (p.actual - p.expected)) / pairs.Count;
+            double rmse = Math.Sqrt(mse);
+
+            if (pairs.Count < 2)
+            {
+                autobalanceStatusText.Text = $"Ready — RMSE {rmse:0.##}pp (1 score)";
+                return;
+            }
+
+            double spearman = computeSpearmanCorrelation(pairs);
+            autobalanceStatusText.Text = $"Ready — RMSE {rmse:0.##}pp, \u03c1={spearman:0.###} ({pairs.Count} scores)";
+        }
+
+        private static double? getAutobalanceTargetValue(PerformanceAttributes? attributes, AutobalanceTarget target)
+        {
+            if (attributes == null)
+                return null;
+
+            return target switch
+            {
+                AutobalanceTarget.Total => attributes.Total,
+                AutobalanceTarget.Aim => (attributes as OsuPerformanceAttributes)?.Aim,
+                AutobalanceTarget.Speed => (attributes as OsuPerformanceAttributes)?.Speed,
+                AutobalanceTarget.Accuracy => (attributes as OsuPerformanceAttributes)?.Accuracy,
+                AutobalanceTarget.Reading => (attributes as OsuPerformanceAttributes)?.Reading,
+                AutobalanceTarget.Flashlight => (attributes as OsuPerformanceAttributes)?.Flashlight,
+                _ => null
+            };
+        }
+
+        private static double computeSpearmanCorrelation(List<(double actual, double expected)> pairs)
+        {
+            int n = pairs.Count;
+
+            if (n < 2)
+                return 0;
+
+            double[] actualRanks = computeRanks(pairs.Select(p => p.actual).ToArray());
+            double[] expectedRanks = computeRanks(pairs.Select(p => p.expected).ToArray());
+
+            double sumDSq = 0;
+
+            for (int i = 0; i < n; i++)
+            {
+                double d = actualRanks[i] - expectedRanks[i];
+                sumDSq += d * d;
+            }
+
+            return 1.0 - 6.0 * sumDSq / (n * ((double)n * n - 1));
+        }
+
+        private static double[] computeRanks(double[] values)
+        {
+            int n = values.Length;
+            var indexed = values.Select((v, i) => (value: v, index: i)).OrderBy(x => x.value).ToArray();
+            double[] ranks = new double[n];
+
+            int i = 0;
+
+            while (i < n)
+            {
+                int j = i;
+
+                while (j < n - 1 && Math.Abs(indexed[j + 1].value - indexed[j].value) < 1e-9)
+                    j++;
+
+                double avgRank = (i + j) / 2.0 + 1;
+
+                for (int k = i; k <= j; k++)
+                    ranks[indexed[k].index] = avgRank;
+
+                i = j + 1;
+            }
+
+            return ranks;
         }
 
         private void setAutobalanceProgress(double progress)
