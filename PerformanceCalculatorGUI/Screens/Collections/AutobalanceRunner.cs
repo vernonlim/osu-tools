@@ -25,8 +25,8 @@ namespace PerformanceCalculatorGUI.Screens.Collections
     public class AutobalanceRunner
     {
         private const int max_iterations = 5000;
-        private const int tpe_iterations = 5000;        // TPE is more sample-efficient
-        private const int tpe_startup_trials = 500;     // Random exploration before TPE
+        private const int tpe_iterations = 2000;        // TPE is more sample-efficient
+        private const int tpe_startup_trials = 150;     // Random exploration before TPE
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
         private const double min_temperature = 0.001;

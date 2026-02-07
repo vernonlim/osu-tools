@@ -113,7 +113,9 @@ namespace PerformanceCalculatorGUI.Configuration
             doubleParam(nameof(CatchDifficultyConstants.PrecisionCorrectionTimeExponent), t => t.PrecisionCorrectionTimeExponent, (t, v) => t with { PrecisionCorrectionTimeExponent = v },
                 minValue: 1.30, maxValue: 1.70),
             doubleParam(nameof(CatchDifficultyConstants.PrecisionCorrectionDistanceWeight), t => t.PrecisionCorrectionDistanceWeight, (t, v) => t with { PrecisionCorrectionDistanceWeight = v },
-                minValue: 0.35, maxValue: 0.65)
+                minValue: 0.35, maxValue: 0.65),
+            doubleParam(nameof(CatchDifficultyConstants.FinalSRMultiplier), t => t.FinalSRMultiplier, (t, v) => t with { FinalSRMultiplier = v },
+                minValue: 0.9, maxValue: 1.1)
         };
 
         private static DifficultyTuningParameter<CatchDifficultyConstants> doubleParam(string propertyName, Func<CatchDifficultyConstants, double> getter,

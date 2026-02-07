@@ -792,7 +792,7 @@ namespace PerformanceCalculatorGUI.Screens
 
             var target = autobalanceTarget.Value;
             int targetRulesetId = autobalanceRuleset.Value == AutobalanceRuleset.Catch ? 2 : 0;
-            var pairs = new List<(double actual, double expected)>();
+            var pairs = new List<(double actual, double expected, double weight)>();
 
             foreach (var container in scoresList.Children)
             {
@@ -802,6 +802,8 @@ namespace PerformanceCalculatorGUI.Screens
                     continue;
 
                 string key = score.IsStoredScore ? score.StoredScoreId! : score.SoloScore.ID.ToString()!;
+
+                double? weight = currentCollection.Value.StoredScores?.Where(s => s.Id == key).First().Weighting;
 
                 if (!expectedPerformance.TryGetValue(key, out var expectedValues))
                     continue;
@@ -814,7 +816,7 @@ namespace PerformanceCalculatorGUI.Screens
                 if (actualValue == null)
                     continue;
 
-                pairs.Add((actualValue.Value, expectedValue));
+                pairs.Add((actualValue.Value, expectedValue, weight ?? 1));
             }
 
             if (pairs.Count == 0)
@@ -823,7 +825,7 @@ namespace PerformanceCalculatorGUI.Screens
                 return;
             }
 
-            double mse = pairs.Sum(p => (p.actual - p.expected) * (p.actual - p.expected)) / pairs.Count;
+            double mse = pairs.Sum(p => (p.actual - p.expected) * (p.actual - p.expected) * p.weight) / (pairs.Sum(p => p.weight));
             double rmse = Math.Sqrt(mse);
 
             if (pairs.Count < 2)
@@ -853,7 +855,7 @@ namespace PerformanceCalculatorGUI.Screens
             };
         }
 
-        private static double computeSpearmanCorrelation(List<(double actual, double expected)> pairs)
+        private static double computeSpearmanCorrelation(List<(double actual, double expected, double weight)> pairs)
         {
             int n = pairs.Count;
 
