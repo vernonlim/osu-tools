@@ -24,7 +24,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 {
     public class AutobalanceRunner
     {
-        private const int max_iterations = 1000;
+        private const int max_iterations = 5000;
+        private const int tpe_iterations = 5000;        // TPE is more sample-efficient
+        private const int tpe_startup_trials = 500;     // Random exploration before TPE
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
         private const double min_temperature = 0.001;
@@ -202,44 +204,31 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                 reporter.Report(dataset_progress_portion, stage: "Optimizing...");
 
-                double currentMse = evaluateAutobalance(dataset, selectedParameters, baseTuning, target, currentValues, createRuleset, getTargetValue);
-                double bestMse = currentMse;
+                // Use TPE for optimization
+                var tpe = new TreeParzenEstimator(lowerBounds, upperBounds,
+                    gamma: 0.15,                       // Smaller gamma = more selective "good" set
+                    nStartupTrials: Math.Max(2 * n, tpe_startup_trials),  // At least 2x parameters
+                    nEiCandidates: 48,                 // More candidates for high-dim
+                    seed: 42);
 
-                var random = new Random(42);
-                double temperature = initial_temperature;
+                double bestMse = double.MaxValue;
 
-                for (int iteration = 0; iteration < max_iterations && temperature > min_temperature; iteration++)
+                for (int iteration = 0; iteration < tpe_iterations; iteration++)
                 {
-                    int paramIndex = random.Next(n);
-                    double range = (upperBounds[paramIndex] - lowerBounds[paramIndex]) * temperature / initial_temperature;
-                    double perturbation = (random.NextDouble() * 2 - 1) * range;
+                    double[] candidateValues = tpe.Suggest();
 
-                    double[] candidateValues = (double[])currentValues.Clone();
-                    candidateValues[paramIndex] = Math.Clamp(
-                        candidateValues[paramIndex] + perturbation,
-                        lowerBounds[paramIndex],
-                        upperBounds[paramIndex]);
+                    double candidateMse = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                        candidateValues, createRuleset, getTargetValue, iteration);
 
-                    double candidateMse = evaluateAutobalance(dataset, selectedParameters, baseTuning, target, candidateValues, createRuleset, getTargetValue
-                        , iteration);
+                    tpe.Report(candidateValues, candidateMse);
 
-                    double delta = candidateMse - currentMse;
-
-                    if (delta < 0 || random.NextDouble() < Math.Exp(-delta / temperature))
+                    if (candidateMse < bestMse)
                     {
-                        currentValues = candidateValues;
-                        currentMse = candidateMse;
-
-                        if (currentMse < bestMse)
-                        {
-                            bestMse = currentMse;
-                            Array.Copy(currentValues, bestValues, n);
-                        }
+                        bestMse = candidateMse;
+                        Array.Copy(candidateValues, bestValues, n);
                     }
 
-                    temperature *= cooling_rate;
-
-                    double opt = (double)(iteration + 1) / max_iterations;
+                    double opt = (double)(iteration + 1) / tpe_iterations;
                     double combined = dataset_progress_portion + (1.0 - dataset_progress_portion) * opt;
                     reporter.Report(combined);
                 }
@@ -413,7 +402,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                     }
                 });
 
-                Console.WriteLine($"MSE at it={it}, count={count}: {(count > 0 ? errorSum / count : big_penalty)}");
+                Console.WriteLine($"RMSE at it={it}, count={count}: {Math.Sqrt(count > 0 ? errorSum / count : big_penalty)}");
 
                 return count > 0 ? errorSum / count : big_penalty;
             }
