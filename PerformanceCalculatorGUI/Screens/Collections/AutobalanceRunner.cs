@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using osu.Framework.Logging;
 using osu.Game.Online.API.Requests.Responses;
@@ -23,9 +24,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 {
     public class AutobalanceRunner
     {
-        private const int max_iterations = 50000;
+        private const int max_iterations = 5000;
         private const double initial_temperature = 100.0;
-        private const double cooling_rate = 0.9999;
+        private const double cooling_rate = 0.999;
         private const double min_temperature = 0.001;
         private const double dataset_progress_portion = 0.05;
         private const double big_penalty = 1e12;
@@ -386,8 +387,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                 double errorSum = 0;
                 int count = 0;
+                object errorLock = new object();
 
-                foreach (var entry in dataset)
+                Parallel.ForEach(dataset, entry =>
                 {
                     var difficultyCalculator = ruleset.CreateDifficultyCalculator(entry.Working);
                     var difficultyAttributes = difficultyCalculator.Calculate(entry.Mods);
@@ -395,12 +397,17 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                     double? actual = getTargetValue(performanceAttributes, target);
 
                     if (actual == null)
-                        continue;
+                        return;
 
                     double diff = actual.Value - entry.ExpectedValue;
-                    errorSum += diff * diff;
-                    count++;
-                }
+                    double sq = diff * diff;
+
+                    lock (errorLock)
+                    {
+                        errorSum += sq;
+                        count++;
+                    }
+                });
 
                 return count > 0 ? errorSum / count : big_penalty;
             }
