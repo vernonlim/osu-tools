@@ -220,7 +220,8 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                         lowerBounds[paramIndex],
                         upperBounds[paramIndex]);
 
-                    double candidateMse = evaluateAutobalance(dataset, selectedParameters, baseTuning, target, candidateValues, createRuleset, getTargetValue);
+                    double candidateMse = evaluateAutobalance(dataset, selectedParameters, baseTuning, target, candidateValues, createRuleset, getTargetValue
+                        , iteration);
 
                     double delta = candidateMse - currentMse;
 
@@ -333,6 +334,8 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 {
                     processed++;
 
+                    Logger.Log(storedScore.Weighting.ToString(), level: LogLevel.Debug);
+
                     if (!expectedPerformance.TryGetValue(storedScore.Id, out var expectedValues) || !TryGetExpectedValue(expectedValues, target, out double expectedValue))
                     {
                         reporter.Report(dataset_progress_portion * processed / totalScores, stage: "Loading scores", completed: processed, total: totalScores);
@@ -356,7 +359,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                         var scoreInfo = soloScore.ToScoreInfo(rulesets, working.BeatmapInfo);
                         var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
 
-                        dataset.Add(new AutobalanceScoreData(working, mods, parsedScore.ScoreInfo, expectedValue));
+                        dataset.Add(new AutobalanceScoreData(working, mods, parsedScore.ScoreInfo, expectedValue, storedScore.Weighting));
                     }
                     catch (Exception e)
                     {
@@ -374,7 +377,8 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private double evaluateAutobalance<TTuning>(IReadOnlyList<AutobalanceScoreData> dataset, AutobalanceParameter<TTuning>[] parameters,
                                                     TTuning baseTuning, AutobalanceTarget target, double[] values,
                                                     Func<TTuning, Ruleset> createRuleset,
-                                                    Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue)
+                                                    Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
+                                                    int it = -1)
         {
             try
             {
@@ -400,14 +404,16 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                         return;
 
                     double diff = actual.Value - entry.ExpectedValue;
-                    double sq = diff * diff;
+                    double sq = diff * diff * entry.Weighting;
 
                     lock (errorLock)
                     {
                         errorSum += sq;
-                        count++;
+                        count += (int)entry.Weighting;
                     }
                 });
+
+                Console.WriteLine($"MSE at it={it}, count={count}: {(count > 0 ? errorSum / count : big_penalty)}");
 
                 return count > 0 ? errorSum / count : big_penalty;
             }
@@ -595,13 +601,15 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         public Mod[] Mods { get; }
         public ScoreInfo ScoreInfo { get; }
         public double ExpectedValue { get; }
+        public double Weighting { get; }
 
-        public AutobalanceScoreData(ProcessorWorkingBeatmap working, Mod[] mods, ScoreInfo scoreInfo, double expectedValue)
+        public AutobalanceScoreData(ProcessorWorkingBeatmap working, Mod[] mods, ScoreInfo scoreInfo, double expectedValue, double weighting = 1)
         {
             Working = working;
             Mods = mods;
             ScoreInfo = scoreInfo;
             ExpectedValue = expectedValue;
+            Weighting = weighting;
         }
     }
 

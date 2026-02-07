@@ -66,5 +66,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 }
             };
         }
+
+        public double Weighting { get; set; }
     }
 }
