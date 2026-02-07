@@ -25,8 +25,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
     public class AutobalanceRunner
     {
         private const int max_iterations = 5000;
-        private const int tpe_iterations = 2000;        // TPE is more sample-efficient
-        private const int tpe_startup_trials = 150;     // Random exploration before TPE
+        private const int tpe_iterations = 100;        // TPE is more sample-efficient
+        private const int tpe_startup_trials = 50;     // Random exploration before TPE
+        private const AutobalanceLossType loss_type = AutobalanceLossType.Spearman;
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
         private const double min_temperature = 0.001;
@@ -122,7 +123,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                                                                         OsuDifficultyConstants baseTuning, Action<AutobalanceProgress>? progress = null)
         {
             return runAutobalanceAsync(collection, target, selectedParameters, baseTuning, "osu",
-                tuning => new OsuRuleset(tuning), getOsuTargetValue, progress);
+                tuning => new OsuRuleset(tuning), getOsuTargetValue,
+                (tuning, scale) => tuning with { TotalPerformanceScale = tuning.TotalPerformanceScale * scale },
+                progress);
         }
 
         public Task<AutobalanceResult<CatchDifficultyConstants>> RunCatchAsync(Collection collection, AutobalanceTarget target,
@@ -133,7 +136,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 return Task.FromResult(AutobalanceResult<CatchDifficultyConstants>.Failure("Catch autobalance supports only Total target."));
 
             return runAutobalanceAsync(collection, target, selectedParameters, baseTuning, "fruits",
-                tuning => new CatchRuleset(tuning), getCatchTargetValue, progress);
+                tuning => new CatchRuleset(tuning), getCatchTargetValue,
+                (tuning, scale) => tuning with { FinalPPMultiplier = tuning.FinalPPMultiplier * scale },
+                progress);
         }
 
         private Task<AutobalanceResult<TTuning>> runAutobalanceAsync<TTuning>(Collection collection, AutobalanceTarget target,
@@ -141,6 +146,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                                                                               TTuning baseTuning, string rulesetShortName,
                                                                               Func<TTuning, Ruleset> createRuleset,
                                                                               Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
+                                                                              Func<TTuning, double, TTuning> applyScaleMultiplier,
                                                                               Action<AutobalanceProgress>? progress = null)
         {
             return Task.Run(async () =>
@@ -160,9 +166,10 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 if (selectedParameters.Length == 0)
                 {
                     reporter.Report(dataset_progress_portion, stage: "Evaluating...");
-                    double baseMse = evaluateAutobalance(dataset, selectedParameters, baseTuning, target, Array.Empty<double>(), createRuleset, getTargetValue);
+                    var (baseMse, baseScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target, Array.Empty<double>(), createRuleset, getTargetValue);
+                    var scaledBaseTuning = applyScaleMultiplier(baseTuning, baseScale);
                     reporter.Report(1, stage: "Done");
-                    return AutobalanceResult<TTuning>.Success(baseTuning, Math.Sqrt(baseMse), dataset.Count);
+                    return AutobalanceResult<TTuning>.Success(scaledBaseTuning, Math.Sqrt(baseMse), dataset.Count);
                 }
 
                 int n = selectedParameters.Length;
@@ -212,12 +219,13 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                     seed: 42);
 
                 double bestMse = double.MaxValue;
+                double bestScale = 1.0;
 
                 for (int iteration = 0; iteration < tpe_iterations; iteration++)
                 {
                     double[] candidateValues = tpe.Suggest();
 
-                    double candidateMse = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                    var (candidateMse, candidateScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
                         candidateValues, createRuleset, getTargetValue, iteration);
 
                     tpe.Report(candidateValues, candidateMse);
@@ -225,6 +233,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                     if (candidateMse < bestMse)
                     {
                         bestMse = candidateMse;
+                        bestScale = candidateScale;
                         Array.Copy(candidateValues, bestValues, n);
                     }
 
@@ -234,6 +243,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 }
 
                 var balancedTuning = applyAutobalanceParameters(baseTuning, selectedParameters, bestValues);
+                balancedTuning = applyScaleMultiplier(balancedTuning, bestScale);
                 double rmse = Math.Sqrt(bestMse);
 
                 reporter.Report(1, stage: "Done");
@@ -363,11 +373,18 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             return dataset;
         }
 
-        private double evaluateAutobalance<TTuning>(IReadOnlyList<AutobalanceScoreData> dataset, AutobalanceParameter<TTuning>[] parameters,
-                                                    TTuning baseTuning, AutobalanceTarget target, double[] values,
-                                                    Func<TTuning, Ruleset> createRuleset,
-                                                    Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
-                                                    int it = -1)
+        /// <summary>
+        /// Evaluates the autobalance objective with optimal linear scaling.
+        /// Returns (loss, optimalScale) where optimalScale minimizes the loss.
+        /// For MSE: s = sum(w * a * e) / sum(w * a^2)
+        /// For MAE: s = weighted median of (e / a)
+        /// For Spearman: scale-invariant, uses MSE-optimal scale for final multiplier
+        /// </summary>
+        private (double loss, double scale) evaluateAutobalance<TTuning>(IReadOnlyList<AutobalanceScoreData> dataset, AutobalanceParameter<TTuning>[] parameters,
+                                                                         TTuning baseTuning, AutobalanceTarget target, double[] values,
+                                                                         Func<TTuning, Ruleset> createRuleset,
+                                                                         Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
+                                                                         int it = -1)
         {
             try
             {
@@ -376,11 +393,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 var performanceCalculator = ruleset.CreatePerformanceCalculator();
 
                 if (performanceCalculator == null)
-                    return big_penalty;
+                    return (big_penalty, 1.0);
 
-                double errorSum = 0;
-                int count = 0;
-                object errorLock = new object();
+                var results = new System.Collections.Concurrent.ConcurrentBag<(double actual, double expected, double weight)>();
 
                 Parallel.ForEach(dataset, entry =>
                 {
@@ -392,24 +407,199 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                     if (actual == null)
                         return;
 
-                    double diff = actual.Value - entry.ExpectedValue;
-                    double sq = diff * diff * entry.Weighting;
-
-                    lock (errorLock)
-                    {
-                        errorSum += sq;
-                        count += (int)entry.Weighting;
-                    }
+                    results.Add((actual.Value, entry.ExpectedValue, entry.Weighting));
                 });
 
-                Console.WriteLine($"RMSE at it={it}, count={count}: {Math.Sqrt(count > 0 ? errorSum / count : big_penalty)}");
+                var resultList = results.ToList();
+                int count = (int)resultList.Sum(r => r.weight);
 
-                return count > 0 ? errorSum / count : big_penalty;
+                if (count == 0)
+                    return (big_penalty, 1.0);
+
+                // Always compute MSE-optimal scale (used for Spearman and as fallback)
+                double sumWeightedActualExpected = 0;
+                double sumWeightedActualSquared = 0;
+
+                foreach (var (actual, expected, weight) in resultList)
+                {
+                    sumWeightedActualExpected += weight * actual * expected;
+                    sumWeightedActualSquared += weight * actual * actual;
+                }
+
+                double mseOptimalScale = sumWeightedActualSquared > 1e-12
+                    ? sumWeightedActualExpected / sumWeightedActualSquared
+                    : 1.0;
+
+                double optimalScale;
+                double loss;
+
+                switch (loss_type)
+                {
+                    case AutobalanceLossType.Mae:
+                        optimalScale = computeWeightedMedianScale(resultList);
+                        optimalScale = Math.Clamp(optimalScale, 0.1, 20.0);
+                        loss = computeMae(resultList, optimalScale, count);
+                        double rmseForMae = Math.Sqrt(computeMse(resultList, optimalScale, count));
+                        Console.WriteLine($"MAE at it={it}, count={count}, scale={optimalScale:F4}: {loss:F2}, RMSE: {rmseForMae:F2}");
+                        break;
+
+                    case AutobalanceLossType.Spearman:
+                        // Spearman is scale-invariant, use MSE-optimal scale for final multiplier
+                        optimalScale = Math.Clamp(mseOptimalScale, 0.1, 20.0);
+                        loss = computeSpearmanLoss(resultList);
+                        double maeForSpearman = computeMae(resultList, optimalScale, count);
+                        double rmseForSpearman = Math.Sqrt(computeMse(resultList, optimalScale, count));
+                        Console.WriteLine($"Spearman loss at it={it}, count={count}, scale={optimalScale:F4}: {loss:F6}, MAE: {maeForSpearman:F2}, RMSE: {rmseForSpearman:F2}");
+                        break;
+
+                    case AutobalanceLossType.Rmse:
+                    default:
+                        optimalScale = Math.Clamp(mseOptimalScale, 0.1, 20.0);
+                        loss = computeMse(resultList, optimalScale, count);
+                        double maeForRmse = computeMae(resultList, optimalScale, count);
+                        Console.WriteLine($"RMSE at it={it}, count={count}, scale={optimalScale:F4}: {Math.Sqrt(loss):F2}, MAE: {maeForRmse:F2}");
+                        break;
+                }
+
+                return (loss, optimalScale);
             }
             catch
             {
-                return big_penalty;
+                return (big_penalty, 1.0);
             }
+        }
+
+        private static double computeMse(List<(double actual, double expected, double weight)> results, double scale, int count)
+        {
+            double errorSum = 0;
+
+            foreach (var (actual, expected, weight) in results)
+            {
+                double diff = actual * scale - expected;
+                errorSum += diff * diff * weight;
+            }
+
+            return errorSum / count;
+        }
+
+        private static double computeMae(List<(double actual, double expected, double weight)> results, double scale, int count)
+        {
+            double errorSum = 0;
+
+            foreach (var (actual, expected, weight) in results)
+            {
+                double diff = Math.Abs(actual * scale - expected);
+                errorSum += diff * weight;
+            }
+
+            return errorSum / count;
+        }
+
+        /// <summary>
+        /// Computes Spearman rank correlation loss (1 - rho), where rho is the Spearman correlation.
+        /// Lower is better (0 = perfect correlation, 2 = perfect negative correlation).
+        /// </summary>
+        private static double computeSpearmanLoss(List<(double actual, double expected, double weight)> results)
+        {
+            if (results.Count < 2)
+                return big_penalty;
+
+            // Expand weighted samples for ranking (approximate for non-integer weights)
+            var actualRanks = computeRanks(results.Select(r => r.actual).ToArray());
+            var expectedRanks = computeRanks(results.Select(r => r.expected).ToArray());
+
+            // Compute weighted Spearman correlation
+            double totalWeight = results.Sum(r => r.weight);
+            double meanActualRank = 0, meanExpectedRank = 0;
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                meanActualRank += results[i].weight * actualRanks[i];
+                meanExpectedRank += results[i].weight * expectedRanks[i];
+            }
+
+            meanActualRank /= totalWeight;
+            meanExpectedRank /= totalWeight;
+
+            double covariance = 0, varActual = 0, varExpected = 0;
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                double w = results[i].weight;
+                double dActual = actualRanks[i] - meanActualRank;
+                double dExpected = expectedRanks[i] - meanExpectedRank;
+
+                covariance += w * dActual * dExpected;
+                varActual += w * dActual * dActual;
+                varExpected += w * dExpected * dExpected;
+            }
+
+            if (varActual < 1e-12 || varExpected < 1e-12)
+                return 1.0; // No variance = undefined correlation, treat as neutral
+
+            double rho = covariance / Math.Sqrt(varActual * varExpected);
+
+            // Return loss: 1 - rho (so 0 is perfect, higher is worse)
+            return 1.0 - rho;
+        }
+
+        private static double[] computeRanks(double[] values)
+        {
+            int n = values.Length;
+            var indexed = values.Select((v, i) => (value: v, index: i)).OrderBy(x => x.value).ToArray();
+            var ranks = new double[n];
+
+            int i = 0;
+
+            while (i < n)
+            {
+                int j = i;
+
+                // Find all tied values
+                while (j < n && Math.Abs(indexed[j].value - indexed[i].value) < 1e-12)
+                    j++;
+
+                // Assign average rank to all tied values
+                double avgRank = (i + j + 1) / 2.0; // 1-based average rank
+
+                for (int k = i; k < j; k++)
+                    ranks[indexed[k].index] = avgRank;
+
+                i = j;
+            }
+
+            return ranks;
+        }
+
+        /// <summary>
+        /// Computes the weighted median of (expected / actual) ratios.
+        /// This is the optimal scale for minimizing weighted MAE.
+        /// </summary>
+        private static double computeWeightedMedianScale(List<(double actual, double expected, double weight)> results)
+        {
+            // Filter out zero/near-zero actuals to avoid division issues
+            var ratios = results
+                .Where(r => Math.Abs(r.actual) > 1e-12)
+                .Select(r => (ratio: r.expected / r.actual, weight: r.weight))
+                .OrderBy(r => r.ratio)
+                .ToList();
+
+            if (ratios.Count == 0)
+                return 1.0;
+
+            double totalWeight = ratios.Sum(r => r.weight);
+            double halfWeight = totalWeight / 2.0;
+            double cumWeight = 0;
+
+            foreach (var (ratio, weight) in ratios)
+            {
+                cumWeight += weight;
+
+                if (cumWeight >= halfWeight)
+                    return ratio;
+            }
+
+            return ratios[^1].ratio;
         }
 
         private static TTuning applyAutobalanceParameters<TTuning>(TTuning baseTuning, AutobalanceParameter<TTuning>[] parameters, double[] values)
@@ -529,6 +719,18 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
         [Description("catch")]
         Catch
+    }
+
+    public enum AutobalanceLossType
+    {
+        [Description("RMSE")]
+        Rmse,
+
+        [Description("MAE")]
+        Mae,
+
+        [Description("Spearman")]
+        Spearman
     }
 
     public interface IAutobalanceParameter
