@@ -20,6 +20,8 @@ using osu.Game.Rulesets.Osu.Difficulty;
 using osu.Game.Scoring;
 using PerformanceCalculatorGUI.Configuration;
 
+using CMAESnet;
+
 namespace PerformanceCalculatorGUI.Screens.Collections
 {
     public class AutobalanceRunner
@@ -27,7 +29,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const int max_iterations = 5000;
         private const int tpe_iterations = 4000;        // TPE is more sample-efficient
         private const int tpe_startup_trials = 750;     // Random exploration before TPE
+        private const int cmaes_generations = 275;      // CMA-ES generations (iterations = generations * population_size)
         private const AutobalanceLossType loss_type = AutobalanceLossType.Mae;
+        private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.CmaEs;
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
         private const double min_temperature = 0.001;
@@ -211,35 +215,21 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                 reporter.Report(dataset_progress_portion, stage: "Optimizing...");
 
-                // Use TPE for optimization
-                var tpe = new TreeParzenEstimator(lowerBounds, upperBounds,
-                    gamma: 0.15,                       // Smaller gamma = more selective "good" set
-                    nStartupTrials: Math.Max(2 * n, tpe_startup_trials),  // At least 2x parameters
-                    nEiCandidates: 48,                 // More candidates for high-dim
-                    seed: 42);
-
                 double bestMse = double.MaxValue;
                 double bestScale = 1.0;
 
-                for (int iteration = 0; iteration < tpe_iterations; iteration++)
+                switch (optimizer_type)
                 {
-                    double[] candidateValues = tpe.Suggest();
+                    case AutobalanceOptimizerType.CmaEs:
+                        runCmaEsOptimization(dataset, selectedParameters, baseTuning, target, createRuleset, getTargetValue,
+                            currentValues, lowerBounds, upperBounds, reporter, ref bestMse, ref bestScale, ref bestValues);
+                        break;
 
-                    var (candidateMse, candidateScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
-                        candidateValues, createRuleset, getTargetValue, iteration);
-
-                    tpe.Report(candidateValues, candidateMse);
-
-                    if (candidateMse < bestMse)
-                    {
-                        bestMse = candidateMse;
-                        bestScale = candidateScale;
-                        Array.Copy(candidateValues, bestValues, n);
-                    }
-
-                    double opt = (double)(iteration + 1) / tpe_iterations;
-                    double combined = dataset_progress_portion + (1.0 - dataset_progress_portion) * opt;
-                    reporter.Report(combined);
+                    case AutobalanceOptimizerType.Tpe:
+                    default:
+                        runTpeOptimization(dataset, selectedParameters, baseTuning, target, createRuleset, getTargetValue,
+                            lowerBounds, upperBounds, n, reporter, ref bestMse, ref bestScale, ref bestValues);
+                        break;
                 }
 
                 var balancedTuning = applyAutobalanceParameters(baseTuning, selectedParameters, bestValues);
@@ -249,6 +239,130 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 reporter.Report(1, stage: "Done");
                 return AutobalanceResult<TTuning>.Success(balancedTuning, rmse, dataset.Count);
             });
+        }
+
+        private void runTpeOptimization<TTuning>(IReadOnlyList<AutobalanceScoreData> dataset,
+                                                 AutobalanceParameter<TTuning>[] selectedParameters,
+                                                 TTuning baseTuning, AutobalanceTarget target,
+                                                 Func<TTuning, Ruleset> createRuleset,
+                                                 Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
+                                                 double[] lowerBounds, double[] upperBounds, int n,
+                                                 ProgressReporter reporter,
+                                                 ref double bestMse, ref double bestScale, ref double[] bestValues)
+        {
+            var tpe = new TreeParzenEstimator(lowerBounds, upperBounds,
+                gamma: 0.15,
+                nStartupTrials: Math.Max(2 * n, tpe_startup_trials),
+                nEiCandidates: 48,
+                seed: 42);
+
+            for (int iteration = 0; iteration < tpe_iterations; iteration++)
+            {
+                double[] candidateValues = tpe.Suggest();
+
+                var (candidateMse, candidateScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                    candidateValues, createRuleset, getTargetValue, iteration);
+
+                tpe.Report(candidateValues, candidateMse);
+
+                if (candidateMse < bestMse)
+                {
+                    bestMse = candidateMse;
+                    bestScale = candidateScale;
+                    Array.Copy(candidateValues, bestValues, n);
+                }
+
+                double opt = (double)(iteration + 1) / tpe_iterations;
+                double combined = dataset_progress_portion + (1.0 - dataset_progress_portion) * opt;
+                reporter.Report(combined);
+            }
+        }
+
+        private void runCmaEsOptimization<TTuning>(IReadOnlyList<AutobalanceScoreData> dataset,
+                                                   AutobalanceParameter<TTuning>[] selectedParameters,
+                                                   TTuning baseTuning, AutobalanceTarget target,
+                                                   Func<TTuning, Ruleset> createRuleset,
+                                                   Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
+                                                   double[] initialValues, double[] lowerBounds, double[] upperBounds,
+                                                   ProgressReporter reporter,
+                                                   ref double bestMse, ref double bestScale, ref double[] bestValues)
+        {
+            int n = initialValues.Length;
+
+            // Compute initial sigma as fraction of average parameter range
+            double avgRange = 0;
+            for (int i = 0; i < n; i++)
+                avgRange += upperBounds[i] - lowerBounds[i];
+            avgRange /= n;
+            double sigma = avgRange * 0.3;
+
+            // Build bounds matrix for CMA
+            var boundsMatrix = MathNet.Numerics.LinearAlgebra.Matrix<double>.Build.Dense(n, 2);
+            boundsMatrix.SetColumn(0, lowerBounds);
+            boundsMatrix.SetColumn(1, upperBounds);
+
+            // Create CMA optimizer with low-level API
+            var cma = new CMA(initialValues, sigma, boundsMatrix, nMaxResampling: 100, seed: 42);
+
+            // Track best values found during optimization
+            double localBestMse = double.MaxValue;
+            double localBestScale = 1.0;
+            double[] localBestValues = new double[n];
+            Array.Copy(initialValues, localBestValues, n);
+
+            int totalEvaluations = 0;
+            int maxGenerations = cmaes_generations;
+            int populationSize = cma.PopulationSize;
+
+            for (int generation = 0; generation < maxGenerations; generation++)
+            {
+                // Ask for population candidates
+                var solutions = new List<Tuple<MathNet.Numerics.LinearAlgebra.Vector<double>, double>>();
+
+                for (int i = 0; i < populationSize; i++)
+                {
+                    var candidate = cma.Ask();
+                    double[] candidateArray = candidate.ToArray();
+
+                    var (loss, scale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                        candidateArray, createRuleset, getTargetValue, totalEvaluations);
+
+                    solutions.Add(Tuple.Create(candidate, loss));
+                    totalEvaluations++;
+
+                    if (loss < localBestMse)
+                    {
+                        localBestMse = loss;
+                        localBestScale = scale;
+                        Array.Copy(candidateArray, localBestValues, n);
+                    }
+                }
+
+                // Tell CMA about the evaluated solutions
+                cma.Tell(solutions);
+
+                // Report generation stats
+                double genBestLoss = solutions.Min(s => s.Item2);
+                Console.WriteLine($"CMA-ES gen {generation + 1}/{maxGenerations}: best this gen = {genBestLoss:F2}, overall best = {localBestMse:F2}, scale = {localBestScale:F4}");
+
+                // Update progress
+                double progress = (double)(generation + 1) / maxGenerations;
+                double combined = dataset_progress_portion + (1.0 - dataset_progress_portion) * progress;
+                reporter.Report(combined);
+
+                // Check for convergence
+                if (cma.IsConverged())
+                {
+                    Console.WriteLine($"CMA-ES converged at generation {generation + 1}");
+                    break;
+                }
+            }
+
+            Console.WriteLine($"CMA-ES finished: {totalEvaluations} evaluations, best loss: {localBestMse}");
+
+            bestMse = localBestMse;
+            bestScale = localBestScale;
+            bestValues = localBestValues;
         }
 
         private async Task<List<AutobalanceScoreData>> buildAutobalanceDataset(Collection collection, AutobalanceTarget target,
@@ -731,6 +845,15 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
         [Description("Spearman")]
         Spearman
+    }
+
+    public enum AutobalanceOptimizerType
+    {
+        [Description("TPE")]
+        Tpe,
+
+        [Description("CMA-ES")]
+        CmaEs
     }
 
     public interface IAutobalanceParameter
