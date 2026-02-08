@@ -72,7 +72,7 @@ namespace PerformanceCalculatorGUI.Configuration
                 minValue: 5.0, maxValue: 35.0),
             doubleParam(nameof(CatchDifficultyConstants.SpeedConsistencyPace), t => t.SpeedConsistencyPace, (t, v) => t with { SpeedConsistencyPace = v },
                 minValue: 20.0, maxValue: 60.0),
-            doubleParam(nameof(CatchDifficultyConstants.SpeedConsistencyShift), t => t.SpeedConsistencyShift, (t, v) => t with { SpeedBurstShift = v },
+            doubleParam(nameof(CatchDifficultyConstants.SpeedConsistencyShift), t => t.SpeedConsistencyShift, (t, v) => t with { SpeedConsistencyShift = v },
                 minValue: -75.0, maxValue: 10.0),
             doubleParam(nameof(CatchDifficultyConstants.SpeedConsistencyMultiplier), t => t.SpeedConsistencyMultiplier, (t, v) => t with { SpeedConsistencyMultiplier = v },
                 minValue: 0.75, maxValue: 1.35),
