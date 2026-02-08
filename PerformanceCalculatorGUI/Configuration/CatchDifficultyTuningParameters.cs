@@ -19,7 +19,7 @@ namespace PerformanceCalculatorGUI.Configuration
             doubleParam(nameof(CatchDifficultyConstants.BeginningFullPenalty), t => t.BeginningFullPenalty, (t, v) => t with { BeginningFullPenalty = v },
                 minValue: 0.40, maxValue: 0.70),
             doubleParam(nameof(CatchDifficultyConstants.LocalStarRatingMaxConstant), t => t.LocalStarRatingMaxConstant, (t, v) => t with { LocalStarRatingMaxConstant = v },
-                minValue: 0.80, maxValue: 2.00),
+                minValue: 0.80, maxValue: 2.50),
             doubleParam(nameof(CatchDifficultyConstants.LocalStarRatingMinConstant), t => t.LocalStarRatingMinConstant, (t, v) => t with { LocalStarRatingMinConstant = v },
                 minValue: 0.60, maxValue: 1.20),
             doubleParam(nameof(CatchDifficultyConstants.LocalStarRatingCorrelationConstant), t => t.LocalStarRatingCorrelationConstant, (t, v) => t with { LocalStarRatingCorrelationConstant = v },
