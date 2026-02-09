@@ -40,6 +40,8 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const double bound_lower_factor = 0.33;
         private const double bound_upper_factor = 3.0;
         private const double spearman_weight = 2000.0;  // Multiplier for Spearman loss to match MAE scale (MAE ~60-100, Spearman ~0.03)
+        private const string osu_scale_parameter_label = "Total perf";
+        private const string catch_scale_parameter_label = "Final pp multiplier";
 
         private readonly ScoreCache scoreCache;
         private readonly RulesetStore rulesets;
@@ -127,9 +129,12 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                                                                         AutobalanceParameter<OsuDifficultyConstants>[] selectedParameters,
                                                                         OsuDifficultyConstants baseTuning, Action<AutobalanceProgress>? progress = null)
         {
+            // Disable auto-scaling if the scale parameter is being tuned by the optimizer
+            bool scaleParameterSelected = selectedParameters.Any(p => p.Label == osu_scale_parameter_label);
             return runAutobalanceAsync(collection, target, selectedParameters, baseTuning, "osu",
                 tuning => new OsuRuleset(tuning), getOsuTargetValue,
                 (tuning, scale) => tuning with { TotalPerformanceScale = tuning.TotalPerformanceScale * scale },
+                enableAutoScaling: !scaleParameterSelected,
                 progress);
         }
 
@@ -140,9 +145,12 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             if (target != AutobalanceTarget.Total)
                 return Task.FromResult(AutobalanceResult<CatchDifficultyConstants>.Failure("Catch autobalance supports only Total target."));
 
+            // Disable auto-scaling if the scale parameter is being tuned by the optimizer
+            bool scaleParameterSelected = selectedParameters.Any(p => p.Label == catch_scale_parameter_label);
             return runAutobalanceAsync(collection, target, selectedParameters, baseTuning, "fruits",
                 tuning => new CatchRuleset(tuning), getCatchTargetValue,
                 (tuning, scale) => tuning with { FinalPPMultiplier = tuning.FinalPPMultiplier * scale },
+                enableAutoScaling: !scaleParameterSelected,
                 progress);
         }
 
@@ -152,6 +160,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                                                                               Func<TTuning, Ruleset> createRuleset,
                                                                               Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
                                                                               Func<TTuning, double, TTuning> applyScaleMultiplier,
+                                                                              bool enableAutoScaling,
                                                                               Action<AutobalanceProgress>? progress = null)
         {
             return Task.Run(async () =>
@@ -171,7 +180,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 if (selectedParameters.Length == 0)
                 {
                     reporter.Report(dataset_progress_portion, stage: "Evaluating...");
-                    var (baseMse, baseScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target, Array.Empty<double>(), createRuleset, getTargetValue);
+                    var (baseMse, baseScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target, Array.Empty<double>(), createRuleset, getTargetValue, enableAutoScaling);
                     var scaledBaseTuning = applyScaleMultiplier(baseTuning, baseScale);
                     reporter.Report(1, stage: "Done");
                     return AutobalanceResult<TTuning>.Success(scaledBaseTuning, Math.Sqrt(baseMse), dataset.Count);
@@ -223,13 +232,13 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 {
                     case AutobalanceOptimizerType.CmaEs:
                         runCmaEsOptimization(dataset, selectedParameters, baseTuning, target, createRuleset, getTargetValue,
-                            currentValues, lowerBounds, upperBounds, reporter, ref bestMse, ref bestScale, ref bestValues);
+                            currentValues, lowerBounds, upperBounds, reporter, enableAutoScaling, ref bestMse, ref bestScale, ref bestValues);
                         break;
 
                     case AutobalanceOptimizerType.Tpe:
                     default:
                         runTpeOptimization(dataset, selectedParameters, baseTuning, target, createRuleset, getTargetValue,
-                            lowerBounds, upperBounds, n, reporter, ref bestMse, ref bestScale, ref bestValues);
+                            lowerBounds, upperBounds, n, reporter, enableAutoScaling, ref bestMse, ref bestScale, ref bestValues);
                         break;
                 }
 
@@ -248,7 +257,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                                                  Func<TTuning, Ruleset> createRuleset,
                                                  Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
                                                  double[] lowerBounds, double[] upperBounds, int n,
-                                                 ProgressReporter reporter,
+                                                 ProgressReporter reporter, bool enableAutoScaling,
                                                  ref double bestMse, ref double bestScale, ref double[] bestValues)
         {
             var tpe = new TreeParzenEstimator(lowerBounds, upperBounds,
@@ -262,7 +271,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 double[] candidateValues = tpe.Suggest();
 
                 var (candidateMse, candidateScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
-                    candidateValues, createRuleset, getTargetValue, iteration);
+                    candidateValues, createRuleset, getTargetValue, enableAutoScaling, iteration);
 
                 tpe.Report(candidateValues, candidateMse);
 
@@ -285,7 +294,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                                                    Func<TTuning, Ruleset> createRuleset,
                                                    Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
                                                    double[] initialValues, double[] lowerBounds, double[] upperBounds,
-                                                   ProgressReporter reporter,
+                                                   ProgressReporter reporter, bool enableAutoScaling,
                                                    ref double bestMse, ref double bestScale, ref double[] bestValues)
         {
             int n = initialValues.Length;
@@ -326,7 +335,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                     double[] candidateArray = candidate.ToArray();
 
                     var (loss, scale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
-                        candidateArray, createRuleset, getTargetValue, totalEvaluations);
+                        candidateArray, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations);
 
                     solutions.Add(Tuple.Create(candidate, loss));
                     totalEvaluations++;
@@ -489,8 +498,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         }
 
         /// <summary>
-        /// Evaluates the autobalance objective with optimal linear scaling.
+        /// Evaluates the autobalance objective with optional linear scaling.
         /// Returns (loss, optimalScale) where optimalScale minimizes the loss.
+        /// If enableAutoScaling is false, returns scale = 1.0 (no automatic scaling).
         /// For MSE: s = sum(w * a * e) / sum(w * a^2)
         /// For MAE: s = weighted median of (e / a)
         /// For Spearman: scale-invariant, uses MSE-optimal scale for final multiplier
@@ -499,6 +509,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                                                                          TTuning baseTuning, AutobalanceTarget target, double[] values,
                                                                          Func<TTuning, Ruleset> createRuleset,
                                                                          Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
+                                                                         bool enableAutoScaling,
                                                                          int it = -1)
         {
             try
@@ -548,10 +559,17 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 double optimalScale;
                 double loss;
 
-                // Always compute all metrics for reporting
+                // Compute scales (even if not used, for reporting)
                 double maeScale = computeWeightedMedianScale(resultList);
                 maeScale = Math.Clamp(maeScale, 0.01, 20.0);
                 double mseScale = Math.Clamp(mseOptimalScale, 0.01, 20.0);
+
+                // If auto-scaling is disabled (scale parameter is being tuned), use scale = 1.0
+                if (!enableAutoScaling)
+                {
+                    maeScale = 1.0;
+                    mseScale = 1.0;
+                }
 
                 double mae = computeMae(resultList, maeScale, count);
                 double mse = computeMse(resultList, mseScale, count);
