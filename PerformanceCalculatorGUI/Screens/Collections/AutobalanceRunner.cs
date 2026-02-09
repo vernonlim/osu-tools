@@ -30,7 +30,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const int tpe_iterations = 4000;        // TPE is more sample-efficient
         private const int tpe_startup_trials = 750;     // Random exploration before TPE
         private const int cmaes_generations = 50;      // CMA-ES generations (iterations = generations * population_size)
-        private const AutobalanceLossType loss_type = AutobalanceLossType.Mae;
+        private const AutobalanceLossType loss_type = AutobalanceLossType.Composite;
         private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.CmaEs;
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
@@ -40,6 +40,13 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const double bound_lower_factor = 0.33;
         private const double bound_upper_factor = 3.0;
         private const double spearman_weight = 2000.0;  // Multiplier for Spearman loss to match MAE scale (MAE ~60-100, Spearman ~0.03)
+
+        // Composite loss hyperparameters
+        private const double composite_overshoot_alpha = 2.0;  // Asymmetric penalty: overshooting penalized 2x more
+        private const double composite_huber_delta = 0.15;     // ~16% relative error transition from quadratic to linear
+        private const double composite_rank_weight = 0.3;      // Weight for Spearman ranking component (Huber ~0.03-0.09, Spearman ~0.08-0.17)
+        private const double composite_weight_power = 0.5;     // Power for importance weighting: w = log(1+pp)^p
+        private const double p_norm_exponent = 1.5;             // Exponent for p-norm error (1 = MAE, 2 = RMSE)
         private const string osu_scale_parameter_label = "Total perf";
         private const string catch_scale_parameter_label = "Final pp multiplier";
 
@@ -574,6 +581,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 double mae = computeMae(resultList, maeScale, count);
                 double mse = computeMse(resultList, mseScale, count);
                 double rmse = Math.Sqrt(mse);
+                double pNormError = computePNormError(resultList, maeScale, count, p_norm_exponent);
                 double spearmanLoss = computeSpearmanLoss(resultList);
 
                 switch (loss_type)
@@ -581,6 +589,11 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                     case AutobalanceLossType.Mae:
                         optimalScale = maeScale;
                         loss = mae;
+                        break;
+
+                    case AutobalanceLossType.PNorm:
+                        optimalScale = maeScale;  // Use MAE-optimal scale (median-based) for robustness
+                        loss = pNormError;
                         break;
 
                     case AutobalanceLossType.Spearman:
@@ -595,6 +608,21 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                         loss = mae + spearman_weight * spearmanLoss;
                         break;
 
+                    case AutobalanceLossType.Composite:
+                    {
+                        // Composite loss operates in log-space with its own scaling
+                        var (compositeLoss, _, compositeMetrics) = computeCompositeLoss(resultList, enableAutoScaling);
+                        optimalScale = enableAutoScaling ? compositeMetrics.MultiplicativeScale : 1.0;
+                        loss = compositeLoss;
+
+                        Console.WriteLine($"it={it}, count={count}, scale={optimalScale:F4} | " +
+                                          $"Huber: {compositeMetrics.HuberLoss:F6}, Spearman: {compositeMetrics.SpearmanLoss:F6}, LogMAE: {compositeMetrics.LogMae:F4} | " +
+                                          $"Overshoot: {compositeMetrics.OvershootRate:P1}, MaxLogOver: {compositeMetrics.MaxLogOvershoot:F4} | " +
+                                          $"Loss: {compositeLoss:F6}");
+
+                        return (loss, optimalScale);
+                    }
+
                     case AutobalanceLossType.Rmse:
                     default:
                         optimalScale = mseScale;
@@ -602,8 +630,8 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                         break;
                 }
 
-                // Always report all 3 metrics
-                Console.WriteLine($"it={it}, count={count}, scale={optimalScale:F4} | MAE: {mae:F2}, RMSE: {rmse:F2}, Spearman: {spearmanLoss:F6} | Loss ({loss_type}): {loss:F4}");
+                // Always report all metrics (for non-composite losses)
+                Console.WriteLine($"it={it}, count={count}, scale={optimalScale:F4} | MAE: {mae:F2}, RMSE: {rmse:F2}, L{p_norm_exponent}: {pNormError:F2}, Spearman: {spearmanLoss:F6} | Loss ({loss_type}): {loss:F4}");
 
                 return (loss, optimalScale);
             }
@@ -637,6 +665,26 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             }
 
             return errorSum / count;
+        }
+
+        /// <summary>
+        /// Computes the p-norm error (Lp norm / Minkowski error).
+        /// Generalizes MAE (p=1) and RMSE (p=2): error = (sum(w * |diff|^p) / count)^(1/p)
+        /// </summary>
+        private static double computePNormError(List<(double actual, double expected, double weight)> results, double scale, int count, double p)
+        {
+            if (p <= 0)
+                return big_penalty;
+
+            double errorSum = 0;
+
+            foreach (var (actual, expected, weight) in results)
+            {
+                double diff = Math.Abs(actual * scale - expected);
+                errorSum += Math.Pow(diff, p) * weight;
+            }
+
+            return Math.Pow(errorSum / count, 1.0 / p);
         }
 
         /// <summary>
@@ -744,6 +792,139 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             }
 
             return ratios[^1].ratio;
+        }
+
+        /// <summary>
+        /// Computes the composite loss in log-space with asymmetric Huber penalty and Spearman ranking.
+        /// Operates on log(1+pp) values with importance weighting and optimal additive shift.
+        /// </summary>
+        private static (double loss, double shift, CompositeMetrics metrics) computeCompositeLoss(
+            List<(double actual, double expected, double weight)> results, bool enableAutoScaling)
+        {
+            int n = results.Count;
+
+            if (n == 0)
+                return (big_penalty, 0.0, default);
+
+            // Transform to log-space
+            var logResults = new List<(double logActual, double logExpected, double importanceWeight)>(n);
+
+            for (int i = 0; i < n; i++)
+            {
+                double logA = Math.Log(1.0 + Math.Max(0, results[i].actual));
+                double logE = Math.Log(1.0 + Math.Max(0, results[i].expected));
+
+                // Importance weighting: log(1+pp)^p, using expected pp as the reference
+                double importance = Math.Pow(logE, composite_weight_power);
+                double combinedWeight = results[i].weight * importance;
+
+                logResults.Add((logA, logE, combinedWeight));
+            }
+
+            // Compute optimal additive shift (median of logE - logA, which corresponds to multiplicative scale)
+            double shift = 0.0;
+
+            if (enableAutoScaling)
+            {
+                var diffs = logResults
+                    .Select(r => (diff: r.logExpected - r.logActual, weight: r.importanceWeight))
+                    .OrderBy(r => r.diff)
+                    .ToList();
+
+                double totalWeight = diffs.Sum(r => r.weight);
+                double halfWeight = totalWeight / 2.0;
+                double cumWeight = 0;
+
+                foreach (var (diff, weight) in diffs)
+                {
+                    cumWeight += weight;
+
+                    if (cumWeight >= halfWeight)
+                    {
+                        shift = diff;
+                        break;
+                    }
+                }
+            }
+
+            // Compute asymmetric Huber loss
+            double totalImportanceWeight = logResults.Sum(r => r.importanceWeight);
+            double huberSum = 0;
+
+            // Diagnostic accumulators
+            int overshootCount = 0;
+            double maxOvershoot = 0;
+            double totalAbsError = 0;
+
+            foreach (var (logActual, logExpected, w) in logResults)
+            {
+                double error = (logActual + shift) - logExpected;  // positive = overshoot
+                double absError = Math.Abs(error);
+                totalAbsError += absError * w;
+
+                if (error > 0)
+                {
+                    overshootCount++;
+                    maxOvershoot = Math.Max(maxOvershoot, error);
+                }
+
+                // Asymmetric multiplier: overshooting costs more
+                double asymmetry = error > 0 ? composite_overshoot_alpha : 1.0;
+
+                // Huber loss: quadratic for |e| < delta, linear beyond
+                double huber;
+
+                if (absError <= composite_huber_delta)
+                    huber = 0.5 * error * error;
+                else
+                    huber = composite_huber_delta * (absError - 0.5 * composite_huber_delta);
+
+                huberSum += w * asymmetry * huber;
+            }
+
+            double huberLoss = huberSum / totalImportanceWeight;
+            double logMae = totalAbsError / totalImportanceWeight;
+
+            // Spearman ranking loss (on original values — ranking is scale-invariant)
+            double spearmanLoss = computeSpearmanLoss(results);
+
+            // Combined loss
+            double loss = huberLoss + composite_rank_weight * spearmanLoss;
+
+            // Convert shift back to multiplicative scale for reporting/application
+            double multiplicativeScale = Math.Exp(shift);
+
+            var metrics = new CompositeMetrics(
+                huberLoss: huberLoss,
+                spearmanLoss: spearmanLoss,
+                logMae: logMae,
+                multiplicativeScale: multiplicativeScale,
+                overshootRate: (double)overshootCount / n,
+                maxLogOvershoot: maxOvershoot
+            );
+
+            return (loss, shift, metrics);
+        }
+
+        private readonly struct CompositeMetrics
+        {
+            public readonly double HuberLoss;
+            public readonly double SpearmanLoss;
+            public readonly double LogMae;
+            public readonly double MultiplicativeScale;
+            public readonly double OvershootRate;
+            public readonly double MaxLogOvershoot;
+
+            public CompositeMetrics(double huberLoss, double spearmanLoss, double logMae,
+                                   double multiplicativeScale, double overshootRate, double maxLogOvershoot)
+            {
+                HuberLoss = huberLoss;
+                SpearmanLoss = spearmanLoss;
+                LogMae = logMae;
+                MultiplicativeScale = multiplicativeScale;
+                OvershootRate = overshootRate;
+                MaxLogOvershoot = maxLogOvershoot;
+            }
         }
 
         private static TTuning applyAutobalanceParameters<TTuning>(TTuning baseTuning, AutobalanceParameter<TTuning>[] parameters, double[] values)
@@ -877,7 +1058,13 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         Spearman,
 
         [Description("MAE + Spearman")]
-        MaeSpearman
+        MaeSpearman,
+
+        [Description("P-Norm")]
+        PNorm,
+
+        [Description("Composite")]
+        Composite
     }
 
     public enum AutobalanceOptimizerType
