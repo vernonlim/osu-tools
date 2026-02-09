@@ -33,7 +33,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const AutobalanceLossType loss_type = AutobalanceLossType.PNorm;
         private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.CmaEs;
         private const double initial_temperature = 5000.0;
-        private const double cooling_rate = 0.999;
+        private const double cooling_rate = 0.91000;
         private const double min_temperature = 0.001;
         private const double dataset_progress_portion = 0.05;
         private const double big_penalty = 1e12;
@@ -47,8 +47,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const double composite_rank_weight = 0.3;      // Weight for Spearman ranking component (Huber ~0.03-0.09, Spearman ~0.08-0.17)
         private const double composite_weight_power = 0.5;     // Power for importance weighting: w = log(1+pp)^p
         private const double p_norm_exponent = 0.8;             // Exponent for p-norm error (1 = MAE, 2 = RMSE)
-        private const string osu_scale_parameter_label = "Total perf";
-        private const string catch_scale_parameter_label = "Final pp multiplier";
+        private const bool enable_auto_scaling = false;          // If true, automatically compute optimal scale; if false, scale = 1.0
 
         private readonly ScoreCache scoreCache;
         private readonly RulesetStore rulesets;
@@ -136,12 +135,10 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                                                                         AutobalanceParameter<OsuDifficultyConstants>[] selectedParameters,
                                                                         OsuDifficultyConstants baseTuning, Action<AutobalanceProgress>? progress = null)
         {
-            // Disable auto-scaling if the scale parameter is being tuned by the optimizer
-            bool scaleParameterSelected = selectedParameters.Any(p => p.Label == osu_scale_parameter_label);
             return runAutobalanceAsync(collection, target, selectedParameters, baseTuning, "osu",
                 tuning => new OsuRuleset(tuning), getOsuTargetValue,
                 (tuning, scale) => tuning with { TotalPerformanceScale = tuning.TotalPerformanceScale * scale },
-                enableAutoScaling: !scaleParameterSelected,
+                enableAutoScaling: enable_auto_scaling,
                 progress);
         }
 
@@ -152,12 +149,10 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             if (target != AutobalanceTarget.Total)
                 return Task.FromResult(AutobalanceResult<CatchDifficultyConstants>.Failure("Catch autobalance supports only Total target."));
 
-            // Disable auto-scaling if the scale parameter is being tuned by the optimizer
-            bool scaleParameterSelected = selectedParameters.Any(p => p.Label == catch_scale_parameter_label);
             return runAutobalanceAsync(collection, target, selectedParameters, baseTuning, "fruits",
                 tuning => new CatchRuleset(tuning), getCatchTargetValue,
                 (tuning, scale) => tuning with { FinalPPMultiplier = tuning.FinalPPMultiplier * scale },
-                enableAutoScaling: !scaleParameterSelected,
+                enableAutoScaling: enable_auto_scaling,
                 progress);
         }
 
