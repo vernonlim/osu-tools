@@ -13,7 +13,7 @@ namespace PerformanceCalculatorGUI.Configuration
         public static readonly IReadOnlyList<DifficultyTuningParameter<CatchDifficultyConstants>> All = new[]
         {
             doubleParam(nameof(CatchDifficultyConstants.SrPreMultiplier), t =>  t.SrPreMultiplier, (t, v) => t with { SrPreMultiplier = v },
-                minValue: 0.3, maxValue: 2.0),
+                minValue: 0.01, maxValue: 2.0),
             doubleParam(nameof(CatchDifficultyConstants.SrScalerY0), t =>  t.SrScalerY0, (t, v) => t with { SrScalerY0 = v }, minValue: (1.0 - 0.5), maxValue: (1.0 + 0.5)),
             doubleParam(nameof(CatchDifficultyConstants.SrScalerY1), t =>  t.SrScalerY1, (t, v) => t with { SrScalerY1 = v }, minValue: (2.0 - 0.5), maxValue: (2.0 + 0.5)),
             doubleParam(nameof(CatchDifficultyConstants.SrScalerY2), t =>  t.SrScalerY2, (t, v) => t with { SrScalerY2 = v }, minValue: (3.0 - 0.5), maxValue: (3.0 + 0.5)),
