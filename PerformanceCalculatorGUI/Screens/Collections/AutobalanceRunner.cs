@@ -30,7 +30,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const int tpe_iterations = 4000;        // TPE is more sample-efficient
         private const int tpe_startup_trials = 750;     // Random exploration before TPE
         private const int cmaes_generations = 275;      // CMA-ES generations (iterations = generations * population_size)
-        private const AutobalanceLossType loss_type = AutobalanceLossType.MaeSpearman;
+        private const AutobalanceLossType loss_type = AutobalanceLossType.Mae;
         private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.CmaEs;
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
