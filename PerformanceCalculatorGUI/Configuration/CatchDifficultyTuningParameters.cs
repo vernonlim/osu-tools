@@ -12,6 +12,17 @@ namespace PerformanceCalculatorGUI.Configuration
     {
         public static readonly IReadOnlyList<DifficultyTuningParameter<CatchDifficultyConstants>> All = new[]
         {
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY0), t =>  t.SrScalerY0, (t, v) => t with { SrScalerY0 = v }, minValue: (1.0 - 0.5), maxValue: (1.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY1), t =>  t.SrScalerY1, (t, v) => t with { SrScalerY1 = v }, minValue: (2.0 - 0.5), maxValue: (2.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY2), t =>  t.SrScalerY2, (t, v) => t with { SrScalerY2 = v }, minValue: (3.0 - 0.5), maxValue: (3.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY3), t =>  t.SrScalerY3, (t, v) => t with { SrScalerY3 = v }, minValue: (4.0 - 0.5), maxValue: (4.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY4), t =>  t.SrScalerY4, (t, v) => t with { SrScalerY4 = v }, minValue: (5.0 - 0.5), maxValue: (5.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY5), t =>  t.SrScalerY5, (t, v) => t with { SrScalerY5 = v }, minValue: (6.0 - 0.5), maxValue: (6.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY6), t =>  t.SrScalerY6, (t, v) => t with { SrScalerY6 = v }, minValue: (7.0 - 0.5), maxValue: (7.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY7), t =>  t.SrScalerY7, (t, v) => t with { SrScalerY7 = v }, minValue: (8.0 - 0.5), maxValue: (8.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY8), t =>  t.SrScalerY8, (t, v) => t with { SrScalerY8 = v }, minValue: (9.0 - 0.5), maxValue: (9.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY9), t =>  t.SrScalerY9, (t, v) => t with { SrScalerY9 = v }, minValue: (10.0 - 0.5), maxValue: (10.0 + 0.5)),
+            doubleParam(nameof(CatchDifficultyConstants.SrScalerY10), t => t.SrScalerY10, (t, v) => t with { SrScalerY10 = v }, minValue: (11.0 - 0.5), maxValue: (11.0 + 0.5)),
             doubleParam(nameof(CatchDifficultyConstants.ApproachRateSecondConstant), t => t.ApproachRateSecondConstant, (t, v) => t with { ApproachRateSecondConstant = v },
                 minValue: 0.30, maxValue: 0.50),
             doubleParam(nameof(CatchDifficultyConstants.BeginningTimePenaltyPower), t => t.BeginningTimePenaltyPower, (t, v) => t with { BeginningTimePenaltyPower = v },
