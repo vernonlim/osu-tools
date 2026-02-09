@@ -29,7 +29,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const int max_iterations = 5000;
         private const int tpe_iterations = 4000;        // TPE is more sample-efficient
         private const int tpe_startup_trials = 750;     // Random exploration before TPE
-        private const int cmaes_generations = 1000;      // CMA-ES generations (iterations = generations * population_size)
+        private const int cmaes_generations = 5;      // CMA-ES generations (iterations = generations * population_size)
         private const AutobalanceLossType loss_type = AutobalanceLossType.PNorm;
         private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.CmaEs;
         private const double initial_temperature = 5000.0;
@@ -314,7 +314,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             boundsMatrix.SetColumn(1, upperBounds);
 
             // Create CMA optimizer with low-level API
-            var cma = new CMA(initialValues, sigma, boundsMatrix, nMaxResampling: 100, seed: 42);
+            var cma = new CMA(initialValues, sigma, boundsMatrix, nMaxResampling: 250, seed: 42);
 
             // Track best values found during optimization
             double localBestMse = double.MaxValue;

@@ -13,7 +13,7 @@ namespace PerformanceCalculatorGUI.Configuration
         public static readonly IReadOnlyList<DifficultyTuningParameter<CatchDifficultyConstants>> All = new[]
         {
             doubleParam(nameof(CatchDifficultyConstants.SrPreMultiplier), t =>  t.SrPreMultiplier, (t, v) => t with { SrPreMultiplier = v },
-                minValue: 0.01, maxValue: 20.0),
+                minValue: 0.1, maxValue: 1.5),
             doubleParam(nameof(CatchDifficultyConstants.SrScalerY0), t =>  t.SrScalerY0, (t, v) => t with { SrScalerY0 = v }, minValue: (1.0 - 0.5), maxValue: (1.0 + 0.5)),
             doubleParam(nameof(CatchDifficultyConstants.SrScalerY1), t =>  t.SrScalerY1, (t, v) => t with { SrScalerY1 = v }, minValue: (2.0 - 0.5), maxValue: (2.0 + 0.5)),
             doubleParam(nameof(CatchDifficultyConstants.SrScalerY2), t =>  t.SrScalerY2, (t, v) => t with { SrScalerY2 = v }, minValue: (3.0 - 0.5), maxValue: (3.0 + 0.5)),
@@ -126,7 +126,7 @@ namespace PerformanceCalculatorGUI.Configuration
             doubleParam(nameof(CatchDifficultyConstants.PrecisionCorrectionDistanceWeight), t => t.PrecisionCorrectionDistanceWeight, (t, v) => t with { PrecisionCorrectionDistanceWeight = v },
                 minValue: 0.10, maxValue: 0.90),
             doubleParam(nameof(CatchDifficultyConstants.FinalPPMultiplier), t => t.FinalPPMultiplier, (t, v) => t with { FinalPPMultiplier = v },
-                minValue: 0.01, maxValue: 20.0)
+                minValue: 0.7, maxValue: 1.3)
         };
 
         private static DifficultyTuningParameter<CatchDifficultyConstants> doubleParam(string propertyName, Func<CatchDifficultyConstants, double> getter,
