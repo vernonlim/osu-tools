@@ -29,8 +29,8 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const int max_iterations = 5000;
         private const int tpe_iterations = 4000;        // TPE is more sample-efficient
         private const int tpe_startup_trials = 750;     // Random exploration before TPE
-        private const int cmaes_generations = 50;      // CMA-ES generations (iterations = generations * population_size)
-        private const AutobalanceLossType loss_type = AutobalanceLossType.Composite;
+        private const int cmaes_generations = 1000;      // CMA-ES generations (iterations = generations * population_size)
+        private const AutobalanceLossType loss_type = AutobalanceLossType.PNorm;
         private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.CmaEs;
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.999;
@@ -46,7 +46,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const double composite_huber_delta = 0.15;     // ~16% relative error transition from quadratic to linear
         private const double composite_rank_weight = 0.3;      // Weight for Spearman ranking component (Huber ~0.03-0.09, Spearman ~0.08-0.17)
         private const double composite_weight_power = 0.5;     // Power for importance weighting: w = log(1+pp)^p
-        private const double p_norm_exponent = 1.5;             // Exponent for p-norm error (1 = MAE, 2 = RMSE)
+        private const double p_norm_exponent = 0.8;             // Exponent for p-norm error (1 = MAE, 2 = RMSE)
         private const string osu_scale_parameter_label = "Total perf";
         private const string catch_scale_parameter_label = "Final pp multiplier";
 
