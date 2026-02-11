@@ -29,7 +29,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const int max_iterations = 5000;
         private const int tpe_iterations = 4000;        // TPE is more sample-efficient
         private const int tpe_startup_trials = 750;     // Random exploration before TPE
-        private const int cmaes_generations = 1000;      // CMA-ES generations (iterations = generations * population_size)
+        private const int cmaes_generations = 500;      // CMA-ES generations (iterations = generations * population_size)
         private const AutobalanceLossType loss_type = AutobalanceLossType.PNorm;
         private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.CmaEs;
         private const double initial_temperature = 5000.0;
@@ -47,7 +47,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const double composite_rank_weight = 0.3;      // Weight for Spearman ranking component (Huber ~0.03-0.09, Spearman ~0.08-0.17)
         private const double composite_weight_power = 0.5;     // Power for importance weighting: w = log(1+pp)^p
         private const double p_norm_exponent = 0.8;             // Exponent for p-norm error (1 = MAE, 2 = RMSE)
-        private const bool enable_auto_scaling = false;          // If true, automatically compute optimal scale; if false, scale = 1.0
+        private const bool enable_auto_scaling = true;          // If true, automatically compute optimal scale; if false, scale = 1.0
 
         private readonly ScoreCache scoreCache;
         private readonly RulesetStore rulesets;
@@ -576,7 +576,10 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 double mae = computeMae(resultList, maeScale, count);
                 double mse = computeMse(resultList, mseScale, count);
                 double rmse = Math.Sqrt(mse);
-                double pNormError = computePNormError(resultList, maeScale, count, p_norm_exponent);
+                double pNormScale = enableAutoScaling
+                    ? computePNormOptimalScale(resultList, count, p_norm_exponent, maeScale)
+                    : 1.0;
+                double pNormError = computePNormError(resultList, pNormScale, count, p_norm_exponent);
                 double spearmanLoss = computeSpearmanLoss(resultList);
 
                 switch (loss_type)
@@ -587,7 +590,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                         break;
 
                     case AutobalanceLossType.PNorm:
-                        optimalScale = maeScale;  // Use MAE-optimal scale (median-based) for robustness
+                        optimalScale = pNormScale;
                         loss = pNormError;
                         break;
 
@@ -680,6 +683,72 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             }
 
             return Math.Pow(errorSum / count, 1.0 / p);
+        }
+
+        /// <summary>
+        /// Computes the optimal scale for p-norm error using golden section search.
+        /// Minimizes: sum(w * |a*s - e|^p) over s.
+        /// Uses MAE-optimal scale as initial estimate for search bounds.
+        /// </summary>
+        private static double computePNormOptimalScale(List<(double actual, double expected, double weight)> results, int count, double p, double initialGuess)
+        {
+            const int max_iterations = 50;
+            const double tolerance = 1e-6;
+            const double golden_ratio = 0.6180339887498949; // (sqrt(5) - 1) / 2
+
+            // Set search bounds around initial guess
+            double lo = initialGuess * 0.1;
+            double hi = initialGuess * 10.0;
+
+            // Clamp to valid range
+            lo = Math.Max(lo, 0.001);
+            hi = Math.Min(hi, 100.0);
+
+            // Objective function: raw p-norm sum (without the 1/p root, for efficiency)
+            double objective(double s)
+            {
+                double sum = 0;
+
+                foreach (var (actual, expected, weight) in results)
+                {
+                    double diff = Math.Abs(actual * s - expected);
+                    sum += Math.Pow(diff, p) * weight;
+                }
+
+                return sum;
+            }
+
+            // Golden section search
+            double c = hi - golden_ratio * (hi - lo);
+            double d = lo + golden_ratio * (hi - lo);
+            double fc = objective(c);
+            double fd = objective(d);
+
+            for (int i = 0; i < max_iterations; i++)
+            {
+                if (Math.Abs(hi - lo) < tolerance * (Math.Abs(c) + Math.Abs(d)))
+                    break;
+
+                if (fc < fd)
+                {
+                    hi = d;
+                    d = c;
+                    fd = fc;
+                    c = hi - golden_ratio * (hi - lo);
+                    fc = objective(c);
+                }
+                else
+                {
+                    lo = c;
+                    c = d;
+                    fc = fd;
+                    d = lo + golden_ratio * (hi - lo);
+                    fd = objective(d);
+                }
+            }
+
+            double optimalScale = (lo + hi) / 2.0;
+            return Math.Clamp(optimalScale, 0.01, 20.0);
         }
 
         /// <summary>
