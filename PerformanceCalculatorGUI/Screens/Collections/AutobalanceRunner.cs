@@ -31,7 +31,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const int tpe_startup_trials = 750;     // Random exploration before TPE
         private const int cmaes_generations = 500;      // CMA-ES generations (iterations = generations * population_size)
         private const AutobalanceLossType loss_type = AutobalanceLossType.PNorm;
-        private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.CmaEs;
+        private const AutobalanceOptimizerType optimizer_type = AutobalanceOptimizerType.NelderMead;
         private const double initial_temperature = 5000.0;
         private const double cooling_rate = 0.91000;
         private const double min_temperature = 0.001;
@@ -47,7 +47,20 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const double composite_rank_weight = 0.3;      // Weight for Spearman ranking component (Huber ~0.03-0.09, Spearman ~0.08-0.17)
         private const double composite_weight_power = 0.5;     // Power for importance weighting: w = log(1+pp)^p
         private const double p_norm_exponent = 0.8;             // Exponent for p-norm error (1 = MAE, 2 = RMSE)
-        private const bool enable_auto_scaling = true;          // If true, automatically compute optimal scale; if false, scale = 1.0
+        private const bool enable_auto_scaling = false;          // If true, automatically compute optimal scale; if false, scale = 1.0
+
+        // Coordinate descent hyperparameters
+        private const int coord_descent_max_cycles = 1;        // Maximum number of full passes over all parameters
+        private const double coord_descent_tolerance = 1e-3;    // Convergence tolerance (relative improvement)
+
+        // Nelder-Mead simplex hyperparameters
+        private const int nelder_mead_max_iterations = 1000;   // Maximum iterations
+        private const double nelder_mead_tolerance = 1e-6;     // Convergence tolerance
+        private const double nelder_mead_alpha = 1.0;          // Reflection coefficient
+        private const double nelder_mead_gamma = 2.0;          // Expansion coefficient
+        private const double nelder_mead_rho = 0.5;            // Contraction coefficient
+        private const double nelder_mead_sigma = 0.5;          // Shrink coefficient
+        private const double nelder_mead_initial_step = 0.1;   // Initial simplex step as fraction of range
 
         private readonly ScoreCache scoreCache;
         private readonly RulesetStore rulesets;
@@ -237,6 +250,16 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                             currentValues, lowerBounds, upperBounds, reporter, enableAutoScaling, ref bestMse, ref bestScale, ref bestValues);
                         break;
 
+                    case AutobalanceOptimizerType.CoordinateDescent:
+                        runCoordinateDescentOptimization(dataset, selectedParameters, baseTuning, target, createRuleset, getTargetValue,
+                            currentValues, lowerBounds, upperBounds, reporter, enableAutoScaling, ref bestMse, ref bestScale, ref bestValues);
+                        break;
+
+                    case AutobalanceOptimizerType.NelderMead:
+                        runNelderMeadOptimization(dataset, selectedParameters, baseTuning, target, createRuleset, getTargetValue,
+                            currentValues, lowerBounds, upperBounds, reporter, enableAutoScaling, ref bestMse, ref bestScale, ref bestValues);
+                        break;
+
                     case AutobalanceOptimizerType.Tpe:
                     default:
                         runTpeOptimization(dataset, selectedParameters, baseTuning, target, createRuleset, getTargetValue,
@@ -375,6 +398,317 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             bestMse = localBestMse;
             bestScale = localBestScale;
             bestValues = localBestValues;
+        }
+
+        /// <summary>
+        /// Runs coordinate descent optimization: optimizes each parameter one at a time using golden section search.
+        /// Cycles through all parameters until convergence or max cycles reached.
+        /// </summary>
+        private void runCoordinateDescentOptimization<TTuning>(IReadOnlyList<AutobalanceScoreData> dataset,
+                                                               AutobalanceParameter<TTuning>[] selectedParameters,
+                                                               TTuning baseTuning, AutobalanceTarget target,
+                                                               Func<TTuning, Ruleset> createRuleset,
+                                                               Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
+                                                               double[] initialValues, double[] lowerBounds, double[] upperBounds,
+                                                               ProgressReporter reporter, bool enableAutoScaling,
+                                                               ref double bestMse, ref double bestScale, ref double[] bestValues)
+        {
+            int n = initialValues.Length;
+            double[] currentValues = new double[n];
+            Array.Copy(initialValues, currentValues, n);
+
+            // Evaluate initial point
+            var (currentLoss, currentScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                currentValues, createRuleset, getTargetValue, enableAutoScaling, 0);
+
+            double localBestLoss = currentLoss;
+            double localBestScale = currentScale;
+            double[] localBestValues = new double[n];
+            Array.Copy(currentValues, localBestValues, n);
+
+            int totalEvaluations = 1;
+            int totalSteps = coord_descent_max_cycles * n;
+            int currentStep = 0;
+
+            Console.WriteLine($"Coordinate Descent starting: {n} parameters, max {coord_descent_max_cycles} cycles");
+            Console.WriteLine($"Initial loss: {currentLoss:F4}");
+
+            for (int cycle = 0; cycle < coord_descent_max_cycles; cycle++)
+            {
+                double cycleStartLoss = localBestLoss;
+
+                for (int i = 0; i < n; i++)
+                {
+                    currentStep++;
+
+                    // Optimize parameter i using golden section search
+                    double lo = lowerBounds[i];
+                    double hi = upperBounds[i];
+                    double originalValue = currentValues[i];
+
+                    // Golden section search for parameter i
+                    const int max_gs_iterations = 30;
+                    const double golden_ratio = 0.6180339887498949;
+                    const double gs_tolerance = 1e-3;
+
+                    double a = lo;
+                    double b = hi;
+                    double c = b - golden_ratio * (b - a);
+                    double d = a + golden_ratio * (b - a);
+
+                    currentValues[i] = c;
+                    var (fc, scaleC) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                        currentValues, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations++);
+
+                    currentValues[i] = d;
+                    var (fd, scaleD) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                        currentValues, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations++);
+
+                    for (int iter = 0; iter < max_gs_iterations; iter++)
+                    {
+                        if (Math.Abs(b - a) < gs_tolerance * (Math.Abs(c) + Math.Abs(d) + 1e-10))
+                            break;
+
+                        if (fc < fd)
+                        {
+                            b = d;
+                            d = c;
+                            fd = fc;
+                            scaleD = scaleC;
+                            c = b - golden_ratio * (b - a);
+                            currentValues[i] = c;
+                            (fc, scaleC) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                                currentValues, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations++);
+                        }
+                        else
+                        {
+                            a = c;
+                            c = d;
+                            fc = fd;
+                            scaleC = scaleD;
+                            d = a + golden_ratio * (b - a);
+                            currentValues[i] = d;
+                            (fd, scaleD) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                                currentValues, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations++);
+                        }
+                    }
+
+                    // Set to best value found
+                    double bestParamValue = fc < fd ? c : d;
+                    double bestParamLoss = Math.Min(fc, fd);
+                    double bestParamScale = fc < fd ? scaleC : scaleD;
+                    currentValues[i] = bestParamValue;
+
+                    if (bestParamLoss < localBestLoss)
+                    {
+                        localBestLoss = bestParamLoss;
+                        localBestScale = bestParamScale;
+                        Array.Copy(currentValues, localBestValues, n);
+                        Console.WriteLine($"  Param {i} ({selectedParameters[i].Label}): {originalValue:F6} -> {bestParamValue:F6}, loss: {bestParamLoss:F4}");
+                    }
+
+                    // Update progress
+                    double progress = (double)currentStep / totalSteps;
+                    double combined = dataset_progress_portion + (1.0 - dataset_progress_portion) * progress;
+                    reporter.Report(combined);
+                }
+
+                // Check for convergence
+                double relativeImprovement = (cycleStartLoss - localBestLoss) / (cycleStartLoss + 1e-10);
+                Console.WriteLine($"Coordinate Descent cycle {cycle + 1}/{coord_descent_max_cycles}: loss {localBestLoss:F4}, improvement {relativeImprovement:P2}");
+
+                if (relativeImprovement < coord_descent_tolerance)
+                {
+                    Console.WriteLine($"Coordinate Descent converged at cycle {cycle + 1}");
+                    break;
+                }
+            }
+
+            Console.WriteLine($"Coordinate Descent finished: {totalEvaluations} evaluations, best loss: {localBestLoss:F4}");
+
+            bestMse = localBestLoss;
+            bestScale = localBestScale;
+            bestValues = localBestValues;
+        }
+
+        /// <summary>
+        /// Runs Nelder-Mead simplex optimization: a derivative-free method that explores diagonal directions.
+        /// Uses reflection, expansion, contraction, and shrink operations to navigate the parameter space.
+        /// </summary>
+        private void runNelderMeadOptimization<TTuning>(IReadOnlyList<AutobalanceScoreData> dataset,
+                                                        AutobalanceParameter<TTuning>[] selectedParameters,
+                                                        TTuning baseTuning, AutobalanceTarget target,
+                                                        Func<TTuning, Ruleset> createRuleset,
+                                                        Func<PerformanceAttributes?, AutobalanceTarget, double?> getTargetValue,
+                                                        double[] initialValues, double[] lowerBounds, double[] upperBounds,
+                                                        ProgressReporter reporter, bool enableAutoScaling,
+                                                        ref double bestMse, ref double bestScale, ref double[] bestValues)
+        {
+            int n = initialValues.Length;
+            int simplexSize = n + 1;
+
+            // Initialize simplex: n+1 vertices
+            var simplex = new (double[] point, double loss, double scale)[simplexSize];
+
+            // First vertex is the initial point
+            simplex[0].point = new double[n];
+            Array.Copy(initialValues, simplex[0].point, n);
+            var (loss0, scale0) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                simplex[0].point, createRuleset, getTargetValue, enableAutoScaling, 0);
+            simplex[0].loss = loss0;
+            simplex[0].scale = scale0;
+
+            // Other vertices: perturb each dimension
+            for (int i = 0; i < n; i++)
+            {
+                simplex[i + 1].point = new double[n];
+                Array.Copy(initialValues, simplex[i + 1].point, n);
+
+                double range = upperBounds[i] - lowerBounds[i];
+                double step = range * nelder_mead_initial_step;
+
+                // Perturb in positive direction, clamp to bounds
+                simplex[i + 1].point[i] = Math.Clamp(initialValues[i] + step, lowerBounds[i], upperBounds[i]);
+
+                var (lossI, scaleI) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                    simplex[i + 1].point, createRuleset, getTargetValue, enableAutoScaling, i + 1);
+                simplex[i + 1].loss = lossI;
+                simplex[i + 1].scale = scaleI;
+            }
+
+            int totalEvaluations = simplexSize;
+            Console.WriteLine($"Nelder-Mead starting: {n} parameters, {simplexSize} simplex vertices");
+
+            // Helper to clamp a point to bounds
+            double[] clampToBounds(double[] point)
+            {
+                var clamped = new double[n];
+                for (int i = 0; i < n; i++)
+                    clamped[i] = Math.Clamp(point[i], lowerBounds[i], upperBounds[i]);
+                return clamped;
+            }
+
+            // Helper to compute centroid of all points except the worst
+            double[] computeCentroid(int worstIndex)
+            {
+                var centroid = new double[n];
+                for (int i = 0; i < simplexSize; i++)
+                {
+                    if (i == worstIndex) continue;
+                    for (int j = 0; j < n; j++)
+                        centroid[j] += simplex[i].point[j];
+                }
+                for (int j = 0; j < n; j++)
+                    centroid[j] /= n;
+                return centroid;
+            }
+
+            // Helper to create a new point: centroid + factor * (centroid - worst)
+            double[] transformPoint(double[] centroid, double[] worst, double factor)
+            {
+                var result = new double[n];
+                for (int j = 0; j < n; j++)
+                    result[j] = centroid[j] + factor * (centroid[j] - worst[j]);
+                return clampToBounds(result);
+            }
+
+            for (int iteration = 0; iteration < nelder_mead_max_iterations; iteration++)
+            {
+                // Sort simplex by loss (ascending)
+                Array.Sort(simplex, (a, b) => a.loss.CompareTo(b.loss));
+
+                double bestLoss = simplex[0].loss;
+                double worstLoss = simplex[simplexSize - 1].loss;
+                double secondWorstLoss = simplex[simplexSize - 2].loss;
+
+                // Check convergence: spread of loss values
+                double spread = worstLoss - bestLoss;
+                if (spread < nelder_mead_tolerance * (Math.Abs(bestLoss) + 1e-10))
+                {
+                    Console.WriteLine($"Nelder-Mead converged at iteration {iteration}: spread = {spread:E4}");
+                    break;
+                }
+
+                // Report progress every 10 iterations
+                if (iteration % 10 == 0)
+                {
+                    double progress = (double)iteration / nelder_mead_max_iterations;
+                    double combined = dataset_progress_portion + (1.0 - dataset_progress_portion) * progress;
+                    reporter.Report(combined);
+                    Console.WriteLine($"Nelder-Mead iter {iteration}: best = {bestLoss:F4}, worst = {worstLoss:F4}, evals = {totalEvaluations}");
+                }
+
+                // Compute centroid of all points except worst
+                var centroid = computeCentroid(simplexSize - 1);
+
+                // Reflection
+                var reflected = transformPoint(centroid, simplex[simplexSize - 1].point, nelder_mead_alpha);
+                var (reflectedLoss, reflectedScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                    reflected, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations++);
+
+                if (reflectedLoss < secondWorstLoss && reflectedLoss >= bestLoss)
+                {
+                    // Accept reflection
+                    simplex[simplexSize - 1] = (reflected, reflectedLoss, reflectedScale);
+                    continue;
+                }
+
+                if (reflectedLoss < bestLoss)
+                {
+                    // Try expansion
+                    var expanded = transformPoint(centroid, simplex[simplexSize - 1].point, nelder_mead_gamma);
+                    var (expandedLoss, expandedScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                        expanded, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations++);
+
+                    if (expandedLoss < reflectedLoss)
+                        simplex[simplexSize - 1] = (expanded, expandedLoss, expandedScale);
+                    else
+                        simplex[simplexSize - 1] = (reflected, reflectedLoss, reflectedScale);
+                    continue;
+                }
+
+                // Contraction
+                bool useOutside = reflectedLoss < worstLoss;
+                var contractPoint = useOutside ? reflected : simplex[simplexSize - 1].point;
+                double contractLoss = useOutside ? reflectedLoss : worstLoss;
+                double contractFactor = useOutside ? nelder_mead_rho : -nelder_mead_rho;
+
+                var contracted = new double[n];
+                for (int j = 0; j < n; j++)
+                    contracted[j] = centroid[j] + contractFactor * (contractPoint[j] - centroid[j]);
+                contracted = clampToBounds(contracted);
+
+                var (contractedLoss, contractedScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                    contracted, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations++);
+
+                if (contractedLoss < contractLoss)
+                {
+                    simplex[simplexSize - 1] = (contracted, contractedLoss, contractedScale);
+                    continue;
+                }
+
+                // Shrink: move all points except best toward best
+                for (int i = 1; i < simplexSize; i++)
+                {
+                    for (int j = 0; j < n; j++)
+                        simplex[i].point[j] = simplex[0].point[j] + nelder_mead_sigma * (simplex[i].point[j] - simplex[0].point[j]);
+                    simplex[i].point = clampToBounds(simplex[i].point);
+
+                    var (shrunkLoss, shrunkScale) = evaluateAutobalance(dataset, selectedParameters, baseTuning, target,
+                        simplex[i].point, createRuleset, getTargetValue, enableAutoScaling, totalEvaluations++);
+                    simplex[i].loss = shrunkLoss;
+                    simplex[i].scale = shrunkScale;
+                }
+            }
+
+            // Final sort and extract best
+            Array.Sort(simplex, (a, b) => a.loss.CompareTo(b.loss));
+
+            Console.WriteLine($"Nelder-Mead finished: {totalEvaluations} evaluations, best loss: {simplex[0].loss:F4}");
+
+            bestMse = simplex[0].loss;
+            bestScale = simplex[0].scale;
+            bestValues = simplex[0].point;
         }
 
         private async Task<List<AutobalanceScoreData>> buildAutobalanceDataset(Collection collection, AutobalanceTarget target,
@@ -1137,7 +1471,13 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         Tpe,
 
         [Description("CMA-ES")]
-        CmaEs
+        CmaEs,
+
+        [Description("Coordinate Descent")]
+        CoordinateDescent,
+
+        [Description("Nelder-Mead")]
+        NelderMead
     }
 
     public interface IAutobalanceParameter
