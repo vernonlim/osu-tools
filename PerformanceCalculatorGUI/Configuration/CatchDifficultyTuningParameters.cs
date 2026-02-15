@@ -16,6 +16,8 @@ namespace PerformanceCalculatorGUI.Configuration
                 minValue: 0.8, maxValue: 1.2),
             doubleParam(nameof(CatchDifficultyConstants.SrPreMultiplier), t =>  t.SrPreMultiplier, (t, v) => t with { SrPreMultiplier = v },
                 minValue: 0.05, maxValue: 2.0),
+            doubleParam(nameof(CatchDifficultyConstants.SrPostMultiplier), t =>  t.SrPreMultiplier, (t, v) => t with { SrPreMultiplier = v },
+                minValue: 0.05, maxValue: 2.0),
             doubleParam(nameof(CatchDifficultyConstants.SrOffset), t =>  t.SrOffset, (t, v) => t with { SrOffset = v },
                 minValue: 0.05, maxValue: 2.0),
             doubleParam(nameof(CatchDifficultyConstants.SrScalerY6), t =>  t.SrScalerY6, (t, v) => t with { SrScalerY6 = v }, minValue: 10.5, maxValue: 11.5),
