@@ -33,6 +33,8 @@ namespace PerformanceCalculatorGUI.Configuration
                 minValue: 0.10, maxValue: 0.50),
             doubleParam(nameof(CatchDifficultyConstants.BeginningFullPenalty), t => t.BeginningFullPenalty, (t, v) => t with { BeginningFullPenalty = v },
                 minValue: 0.40, maxValue: 0.70),
+            doubleParam(nameof(CatchDifficultyConstants.DefaultDecayWeight), t => t.DefaultDecayWeight, (t, v) => t with { DefaultDecayWeight = v },
+                minValue: 0.8, maxValue: 1.0),
             doubleParam(nameof(CatchDifficultyConstants.LocalStarRatingMaxConstant), t => t.LocalStarRatingMaxConstant, (t, v) => t with { LocalStarRatingMaxConstant = v },
                 minValue: 0.80, maxValue: 2.50),
             doubleParam(nameof(CatchDifficultyConstants.LocalStarRatingMinConstant), t => t.LocalStarRatingMinConstant, (t, v) => t with { LocalStarRatingMinConstant = v },
