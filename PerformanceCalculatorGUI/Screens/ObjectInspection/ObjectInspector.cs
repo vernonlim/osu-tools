@@ -81,6 +81,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
             var modifiedMods = mods.Value.Append(rulesetInstance.GetAutoplayMod()).ToList();
             var playableBeatmap = processorBeatmap.GetPlayableBeatmap(ruleset.Value, modifiedMods);
 
+            playableBeatmap = processorBeatmap.GetPlayableBeatmap(ruleset.Value, modifiedMods);
             processorBeatmap.LoadTrack();
             modifiedMods.OfType<IApplicableToTrack>().ForEach(m => m.ApplyToTrack(processorBeatmap.Track));
 

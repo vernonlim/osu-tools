@@ -30,6 +30,14 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
             createLayout();
         }
 
+        public ObjectInspectorDifficultyValue(string label, string value)
+        {
+            this.label = label;
+            this.value = value;
+
+            createLayout();
+        }
+
         private void createLayout()
         {
             RelativeSizeAxes = Axes.X;
