@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
@@ -21,6 +22,11 @@ namespace PerformanceCalculatorGUI.Components
     {
         protected override Anchor TooltipAnchor => Anchor.TopRight;
 
+        /// <summary>
+        /// Fired when tuning values have been applied via the popover.
+        /// </summary>
+        public event Action? Applied;
+
         [Resolved]
         private Bindable<RulesetInfo> ruleset { get; set; } = null!;
 
@@ -38,21 +44,34 @@ namespace PerformanceCalculatorGUI.Components
 
         public Popover GetPopover()
         {
-            return ruleset.Value.ShortName switch
+            if (ruleset.Value.ShortName == "fruits")
             {
-                "fruits" => new DifficultyTuningPopover<CatchDifficultyConstants>(
+                var catchPopover = new DifficultyTuningPopover<CatchDifficultyConstants>(
                     catchTuningManager.Current,
                     CatchDifficultyConstants.Default,
                     "osu!catch",
                     "catch-tuning.json",
-                    new[] { new DifficultyTuningSection<CatchDifficultyConstants>("All parameters", CatchDifficultyTuningParameters.All.ToArray()) }),
-                _ => new DifficultyTuningPopover<OsuDifficultyConstants>(
-                    osuTuningManager.Current,
-                    OsuDifficultyConstants.Default,
-                    "osu!",
-                    "osu-tuning.json",
-                    OsuDifficultyTuningParameters.Sections)
+                    new[] { new DifficultyTuningSection<CatchDifficultyConstants>("All parameters", CatchDifficultyTuningParameters.All.ToArray()) });
+                catchPopover.Applied += () =>
+                {
+                    catchTuningManager.NotifyApplied();
+                    Applied?.Invoke();
+                };
+                return catchPopover;
+            }
+
+            var osuPopover = new DifficultyTuningPopover<OsuDifficultyConstants>(
+                osuTuningManager.Current,
+                OsuDifficultyConstants.Default,
+                "osu!",
+                "osu-tuning.json",
+                OsuDifficultyTuningParameters.Sections);
+            osuPopover.Applied += () =>
+            {
+                osuTuningManager.NotifyApplied();
+                Applied?.Invoke();
             };
+            return osuPopover;
         }
 
         protected override bool OnClick(ClickEvent e)

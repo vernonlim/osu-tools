@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using osu.Framework;
@@ -74,10 +75,12 @@ namespace PerformanceCalculatorGUI.Screens
         private FillFlowContainer collectionContainer = null!;
         private FillFlowContainer<ScoreContainer> scoresList = null!;
         private AddScoreButton addScoreButton = null!;
-        private readonly Bindable<CollectionSortCriteria> sorting = new Bindable<CollectionSortCriteria>(CollectionSortCriteria.None);
+        private readonly Bindable<CollectionSortCriteria> sorting = new Bindable<CollectionSortCriteria>(CollectionSortCriteria.Target);
 
         private Container autobalanceContainer = null!;
         private FillFlowContainer autobalanceParametersContainer = null!;
+        private OsuSpriteText autobalanceParametersToggleText = null!;
+        private bool autobalanceParametersExpanded = true;
         private OsuSpriteText autobalanceStatusText = null!;
         private RoundedButton autobalanceRunButton = null!;
         private Container autobalanceProgressBar = null!;
@@ -97,6 +100,7 @@ namespace PerformanceCalculatorGUI.Screens
         private readonly Bindable<Collection?> currentCollection = new Bindable<Collection?>();
 
         private const string collections_directory = "collections";
+        private const int max_parallelism = 8;  // Maximum number of parallel score calculations
 
         public CollectionsScreen()
         {
@@ -246,12 +250,33 @@ namespace PerformanceCalculatorGUI.Screens
                                                                     Title = "Target",
                                                                     Current = { BindTarget = autobalanceTarget }
                                                                 },
-                                                                new OsuSpriteText
+                                                                new OsuClickableContainer
                                                                 {
-                                                                    Text = "Parameters",
-                                                                    Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
-                                                                    Colour = colourProvider.Light2,
-                                                                    Margin = new MarginPadding { Top = 6 }
+                                                                    AutoSizeAxes = Axes.Both,
+                                                                    Margin = new MarginPadding { Top = 6 },
+                                                                    Action = toggleAutobalanceParameters,
+                                                                    Child = new FillFlowContainer
+                                                                    {
+                                                                        AutoSizeAxes = Axes.Both,
+                                                                        Direction = FillDirection.Horizontal,
+                                                                        Spacing = new Vector2(6, 0),
+                                                                        Children = new Drawable[]
+                                                                        {
+                                                                            autobalanceParametersToggleText = new OsuSpriteText
+                                                                            {
+                                                                                Text = "v",
+                                                                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                                                                                Colour = colourProvider.Light2,
+                                                                                Width = 12
+                                                                            },
+                                                                            new OsuSpriteText
+                                                                            {
+                                                                                Text = "Parameters",
+                                                                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                                                                                Colour = colourProvider.Light2
+                                                                            }
+                                                                        }
+                                                                    }
                                                                 },
                                                                 autobalanceParametersContainer = new FillFlowContainer
                                                                 {
@@ -347,16 +372,12 @@ namespace PerformanceCalculatorGUI.Screens
             currentCollection.ValueChanged += loadCollection;
             createCollectionButton.OnSave += onCollectionAdd;
             addScoreButton.OnAdd += onScoreAdd;
-            tuningManager.Current.BindValueChanged(_ =>
-            {
-                if (currentCollection.Value != null)
-                    calculateScores();
-            });
-            catchTuningManager.Current.BindValueChanged(_ =>
-            {
-                if (currentCollection.Value != null)
-                    calculateScores();
-            });
+
+            // Subscribe to the manager's Applied event (fired by the tuning popover button)
+            // This is a standard .NET event with strong references, much more reliable than Bindable callbacks
+            tuningManager.Applied += onTuningApplied;
+            catchTuningManager.Applied += onTuningApplied;
+            Logger.Log($"[Collections] Subscribed to tuning Applied events", level: LogLevel.Important);
 
             autobalanceRunner = new AutobalanceRunner(scoreCache, rulesets, configManager);
             autobalanceRuleset.BindValueChanged(_ =>
@@ -379,6 +400,13 @@ namespace PerformanceCalculatorGUI.Screens
 
             if (RuntimeInfo.IsDesktop)
                 HotReloadCallbackReceiver.CompilationFinished += _ => Schedule(calculateScores);
+        }
+
+        private void onTuningApplied()
+        {
+            Logger.Log($"[Collections] Tuning applied! HasCollection={currentCollection.Value != null}", level: LogLevel.Important);
+            if (currentCollection.Value != null)
+                calculateScores();
         }
 
         private void onScoreAdd(long scoreId)
@@ -458,80 +486,112 @@ namespace PerformanceCalculatorGUI.Screens
 
             Task.Run(async () =>
             {
+                var semaphore = new SemaphoreSlim(max_parallelism);
+                var tasks = new List<Task>();
+
+                // Process online scores in parallel
                 foreach (long scoreId in currentCollection.Value.Scores)
                 {
-                    var score = await scoreCache.GetScore(scoreId).ConfigureAwait(false);
-                    if (score == null)
-                        continue;
+                    await semaphore.WaitAsync().ConfigureAwait(false);
 
-                    var rulesetInfo = rulesets.GetRuleset(score.RulesetID)!;
-                    var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(rulesetInfo, tuningManager, catchTuningManager);
-
-                    var working = ProcessorWorkingBeatmap.FromFileOrId(score.BeatmapID.ToString(), cachePath: configManager.GetBindable<string>(Settings.CachePath).Value);
-
-                    Mod[] mods = score.Mods.Select(x => x.ToMod(rulesetInstance)).ToArray();
-
-                    var scoreInfo = score.ToScoreInfo(rulesets, working.BeatmapInfo);
-
-                    var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
-
-                    var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(rulesetInfo, working,
-                        tuningManager.Current.Value, catchTuningManager.Current.Value);
-                    var difficultyAttributes = difficultyCalculator.Calculate(mods);
-                    var performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
-                    if (performanceCalculator == null)
-                        continue;
-
-                    var perfAttributes = performanceCalculator.Calculate(parsedScore.ScoreInfo, difficultyAttributes);
-                    Schedule(() =>
+                    tasks.Add(Task.Run(async () =>
                     {
-                        var scoreContainer = new ScoreContainer(
-                            new ExtendedScore(score, difficultyAttributes, perfAttributes),
-                            currentCollection.Value!.ExpectedPerformance,
-                            () => saveCollection(currentCollection.Value!, false));
-                        scoreContainer.OnDelete += onScoreRemove;
+                        try
+                        {
+                            var score = await scoreCache.GetScore(scoreId).ConfigureAwait(false);
+                            if (score == null)
+                                return;
 
-                        scoresList.Add(scoreContainer);
-                    });
+                            var rulesetInfo = rulesets.GetRuleset(score.RulesetID)!;
+                            var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(rulesetInfo, tuningManager, catchTuningManager);
+
+                            var working = ProcessorWorkingBeatmap.FromFileOrId(score.BeatmapID.ToString(), cachePath: configManager.GetBindable<string>(Settings.CachePath).Value);
+
+                            Mod[] mods = score.Mods.Select(x => x.ToMod(rulesetInstance)).ToArray();
+
+                            var scoreInfo = score.ToScoreInfo(rulesets, working.BeatmapInfo);
+
+                            var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
+
+                            var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(rulesetInfo, working,
+                                tuningManager.Current.Value, catchTuningManager.Current.Value);
+                            var difficultyAttributes = difficultyCalculator.Calculate(mods);
+                            var performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
+                            if (performanceCalculator == null)
+                                return;
+
+                            var perfAttributes = performanceCalculator.Calculate(parsedScore.ScoreInfo, difficultyAttributes);
+                            Schedule(() =>
+                            {
+                                var scoreContainer = new ScoreContainer(
+                                    new ExtendedScore(score, difficultyAttributes, perfAttributes),
+                                    currentCollection.Value!.ExpectedPerformance,
+                                    () => saveCollection(currentCollection.Value!, false));
+                                scoreContainer.OnDelete += onScoreRemove;
+
+                                scoresList.Add(scoreContainer);
+                            });
+                        }
+                        finally
+                        {
+                            semaphore.Release();
+                        }
+                    }));
                 }
 
+                // Process stored scores in parallel
                 if (currentCollection.Value.StoredScores != null)
                 {
                     foreach (var storedScore in currentCollection.Value.StoredScores)
                     {
-                        var rulesetInfo = rulesets.GetRuleset(storedScore.RulesetID)!;
-                        var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(rulesetInfo, tuningManager, catchTuningManager);
+                        await semaphore.WaitAsync().ConfigureAwait(false);
 
-                        var working = ProcessorWorkingBeatmap.FromFileOrId(storedScore.BeatmapID.ToString(), cachePath: configManager.GetBindable<string>(Settings.CachePath).Value);
-
-                        var soloScore = storedScore.ToSoloScoreInfo(working);
-
-                        Mod[] mods = soloScore.Mods.Select(x => x.ToMod(rulesetInstance)).ToArray();
-
-                        var scoreInfo = soloScore.ToScoreInfo(rulesets, working.BeatmapInfo);
-
-                        var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
-
-                        var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(rulesetInfo, working,
-                            tuningManager.Current.Value, catchTuningManager.Current.Value);
-                        var difficultyAttributes = difficultyCalculator.Calculate(mods);
-                        var performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
-                        if (performanceCalculator == null)
-                            continue;
-
-                        var perfAttributes = performanceCalculator.Calculate(parsedScore.ScoreInfo, difficultyAttributes);
-                        Schedule(() =>
+                        var capturedStoredScore = storedScore;
+                        tasks.Add(Task.Run(async () =>
                         {
-                            var scoreContainer = new ScoreContainer(
-                                new ExtendedScore(soloScore, difficultyAttributes, perfAttributes, storedScore.Id),
-                                currentCollection.Value!.ExpectedPerformance,
-                                saveCurrentCollection);
-                            scoreContainer.OnDelete += onScoreRemove;
+                            try
+                            {
+                                var rulesetInfo = rulesets.GetRuleset(capturedStoredScore.RulesetID)!;
+                                var rulesetInstance = RulesetHelper.CreateRulesetWithTuning(rulesetInfo, tuningManager, catchTuningManager);
 
-                            scoresList.Add(scoreContainer);
-                        });
+                                var working = ProcessorWorkingBeatmap.FromFileOrId(capturedStoredScore.BeatmapID.ToString(), cachePath: configManager.GetBindable<string>(Settings.CachePath).Value);
+
+                                var soloScore = capturedStoredScore.ToSoloScoreInfo(working);
+
+                                Mod[] mods = soloScore.Mods.Select(x => x.ToMod(rulesetInstance)).ToArray();
+
+                                var scoreInfo = soloScore.ToScoreInfo(rulesets, working.BeatmapInfo);
+
+                                var parsedScore = new ProcessorScoreDecoder(working).Parse(scoreInfo);
+
+                                var difficultyCalculator = RulesetHelper.GetExtendedDifficultyCalculator(rulesetInfo, working,
+                                    tuningManager.Current.Value, catchTuningManager.Current.Value);
+                                var difficultyAttributes = difficultyCalculator.Calculate(mods);
+                                var performanceCalculator = rulesetInstance.CreatePerformanceCalculator();
+                                if (performanceCalculator == null)
+                                    return;
+
+                                var perfAttributes = performanceCalculator.Calculate(parsedScore.ScoreInfo, difficultyAttributes);
+                                Schedule(() =>
+                                {
+                                    var scoreContainer = new ScoreContainer(
+                                        new ExtendedScore(soloScore, difficultyAttributes, perfAttributes, capturedStoredScore.Id),
+                                        currentCollection.Value!.ExpectedPerformance,
+                                        saveCurrentCollection);
+                                    scoreContainer.OnDelete += onScoreRemove;
+
+                                    scoresList.Add(scoreContainer);
+                                });
+                            }
+                            finally
+                            {
+                                semaphore.Release();
+                            }
+                        }));
                     }
                 }
+
+                await Task.WhenAll(tasks).ConfigureAwait(false);
             }).ContinueWith(t =>
             {
                 Logger.Log(t.Exception?.ToString(), level: LogLevel.Error);
@@ -649,6 +709,10 @@ namespace PerformanceCalculatorGUI.Screens
 
             switch (sortCriteria)
             {
+                case CollectionSortCriteria.Target:
+                    sortedScores = scoresList.Children.OrderByDescending(x => getTargetOrLocalPp(x)).ToArray();
+                    break;
+
                 case CollectionSortCriteria.Live:
                     sortedScores = scoresList.Children.OrderByDescending(x => x.Score.LivePP).ToArray();
                     break;
@@ -669,6 +733,23 @@ namespace PerformanceCalculatorGUI.Screens
             {
                 scoresList.SetLayoutPosition(sortedScores[i], i);
             }
+        }
+
+        private double getTargetOrLocalPp(ScoreContainer container)
+        {
+            var expectedPerformance = currentCollection.Value?.ExpectedPerformance;
+            if (expectedPerformance != null)
+            {
+                string key = container.Score.IsStoredScore ? container.Score.StoredScoreId! : container.Score.SoloScore.ID.ToString()!;
+
+                if (expectedPerformance.TryGetValue(key, out var expectedValues) &&
+                    AutobalanceRunner.TryGetExpectedValue(expectedValues, AutobalanceTarget.Total, out double targetValue))
+                {
+                    return targetValue;
+                }
+            }
+
+            return container.Score.PerformanceAttributes?.Total ?? 0;
         }
 
         private void createAutobalanceParameterControls()
@@ -694,6 +775,22 @@ namespace PerformanceCalculatorGUI.Screens
                         TextColour = colourProvider.Light2
                     }
                 });
+            }
+        }
+
+        private void toggleAutobalanceParameters()
+        {
+            autobalanceParametersExpanded = !autobalanceParametersExpanded;
+
+            if (autobalanceParametersExpanded)
+            {
+                autobalanceParametersContainer.Show();
+                autobalanceParametersToggleText.Text = "v";
+            }
+            else
+            {
+                autobalanceParametersContainer.Hide();
+                autobalanceParametersToggleText.Text = ">";
             }
         }
 
@@ -825,17 +922,19 @@ namespace PerformanceCalculatorGUI.Screens
                 return;
             }
 
-            double mse = pairs.Sum(p => (p.actual - p.expected) * (p.actual - p.expected) * p.weight) / (pairs.Sum(p => p.weight));
+            double totalWeight = pairs.Sum(p => p.weight);
+            double mse = pairs.Sum(p => (p.actual - p.expected) * (p.actual - p.expected) * p.weight) / totalWeight;
+            double mae = pairs.Sum(p => Math.Abs(p.actual - p.expected) * p.weight) / totalWeight;
             double rmse = Math.Sqrt(mse);
 
             if (pairs.Count < 2)
             {
-                autobalanceStatusText.Text = $"Ready — RMSE {rmse:0.##}pp (1 score)";
+                autobalanceStatusText.Text = $"Ready — RMSE {rmse:0.##}pp, MAE {mae:0.##}pp (1 score)";
                 return;
             }
 
             double spearman = computeSpearmanCorrelation(pairs);
-            autobalanceStatusText.Text = $"Ready — RMSE {rmse:0.##}pp, \u03c1={spearman:0.###} ({pairs.Count} scores)";
+            autobalanceStatusText.Text = $"Ready — RMSE {rmse:0.##}pp, MAE {mae:0.##}pp, \u03c1={spearman:0.###} ({pairs.Count} scores)";
         }
 
         private static double? getAutobalanceTargetValue(PerformanceAttributes? attributes, AutobalanceTarget target)

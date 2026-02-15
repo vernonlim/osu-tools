@@ -35,10 +35,10 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private readonly string expectedValuesKey;
 
         private ExpectedPerformanceValues? expectedValues;
-
         private FillFlowContainer expectedValuesContainer = null!;
         private FillFlowContainer expectedValuesRows = null!;
         private OsuSpriteText expectedValuesToggleText = null!;
+        private OsuSpriteText targetPpText = null!;
         private ScheduledDelegate? debouncedExpectedSave;
 
         private const float expected_row_height = 35;
@@ -96,6 +96,13 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                             }
                         }
                     },
+                    targetPpText = new OsuSpriteText
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        Margin = new MarginPadding { Left = 35, Right = 10 },
+                        Font = OsuFont.GetFont(size: 11, weight: FontWeight.SemiBold),
+                        Text = "Target -"
+                    },
                     expectedValuesContainer = new FillFlowContainer
                     {
                         RelativeSizeAxes = Axes.X,
@@ -111,6 +118,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         [BackgroundDependencyLoader]
         private void load()
         {
+            targetPpText.Colour = colourProvider.Light2;
             populateExpectedValues();
         }
 
@@ -174,7 +182,11 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
             if (numericAttributes.TryGetValue("total", out double total))
             {
-                expectedValuesRows.Add(createExpectedRow("total", total, expectedValues?.Total, setExpectedTotal));
+                double? expectedTotal = null;
+                if (expectedValues != null && AutobalanceRunner.TryGetExpectedValue(expectedValues, AutobalanceTarget.Total, out double expectedValue))
+                    expectedTotal = expectedValue;
+
+                expectedValuesRows.Add(createExpectedRow("total", total, expectedTotal, setExpectedTotal));
             }
 
             foreach (var attribute in numericAttributes.Where(x => x.Key != "total").OrderBy(x => x.Key))
@@ -189,6 +201,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
             }
 
             updateExpectedValuesState();
+            updateTargetDisplay();
         }
 
         private Drawable createExpectedHeader()
@@ -326,10 +339,12 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                 expectedValues.Total = null;
                 pruneExpectedValuesIfEmpty();
+                updateTargetDisplay();
                 return;
             }
 
             ensureExpectedValues().Total = value;
+            updateTargetDisplay();
         }
 
         private void setExpectedSkill(string key, double? value)
@@ -341,10 +356,12 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                 expectedValues.Skills.Remove(key);
                 pruneExpectedValuesIfEmpty();
+                updateTargetDisplay();
                 return;
             }
 
             ensureExpectedValues().Skills[key] = value.Value;
+            updateTargetDisplay();
         }
 
         private ExpectedPerformanceValues ensureExpectedValues()
@@ -373,6 +390,29 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         {
             debouncedExpectedSave?.Cancel();
             debouncedExpectedSave = Scheduler.AddDelayed(onExpectedValuesChanged, 250);
+        }
+
+        private void updateTargetDisplay()
+        {
+            if (targetPpText == null)
+                return;
+
+            double? actualValue = Score.PerformanceAttributes?.Total;
+            double? expectedValue = null;
+
+            if (expectedValues != null && AutobalanceRunner.TryGetExpectedValue(expectedValues, AutobalanceTarget.Total, out double expected))
+                expectedValue = expected;
+
+            if (actualValue == null || expectedValue == null)
+            {
+                targetPpText.Text = actualValue != null ? $"Local {actualValue:0.##}pp — Target -" : "Target -";
+                targetPpText.Colour = colourProvider.Light2;
+                return;
+            }
+
+            double difference = actualValue.Value - expectedValue.Value;
+            targetPpText.Text = $"Local {actualValue:0.##}pp — Target {expectedValue:0.##}pp ({difference:+0.##;-0.##;0.00}pp)";
+            targetPpText.Colour = getDifferenceColour(difference);
         }
 
         private Color4 getDifferenceColour(double difference)

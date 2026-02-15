@@ -49,6 +49,9 @@ namespace PerformanceCalculatorGUI.Screens.Collections
         private const double p_norm_exponent = 0.8;             // Exponent for p-norm error (1 = MAE, 2 = RMSE)
         private const bool enable_auto_scaling = false;          // If true, automatically compute optimal scale; if false, scale = 1.0
 
+        // Parallelism settings
+        private const int max_parallelism = 2;                   // Maximum number of parallel threads for score evaluation (0 = unlimited)
+
         // Coordinate descent hyperparameters
         private const int coord_descent_max_cycles = 1;        // Maximum number of full passes over all parameters
         private const double coord_descent_tolerance = 1e-3;    // Convergence tolerance (relative improvement)
@@ -859,7 +862,12 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
                 var results = new System.Collections.Concurrent.ConcurrentBag<(double actual, double expected, double weight)>();
 
-                Parallel.ForEach(dataset, entry =>
+                var parallelOptions = new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = max_parallelism > 0 ? max_parallelism : -1
+                };
+
+                Parallel.ForEach(dataset, parallelOptions, entry =>
                 {
                     var difficultyCalculator = ruleset.CreateDifficultyCalculator(entry.Working);
                     var difficultyAttributes = difficultyCalculator.Calculate(entry.Mods);

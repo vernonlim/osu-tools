@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using Newtonsoft.Json;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
@@ -11,6 +12,7 @@ using osu.Framework.Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
+using osu.Framework.Logging;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Sprites;
@@ -26,6 +28,11 @@ namespace PerformanceCalculatorGUI.Components
     {
         private const double tuning_min_value = 0.0;
         private const double tuning_max_value = double.MaxValue;
+
+        /// <summary>
+        /// Fired after tuning values have been applied.
+        /// </summary>
+        public event Action? Applied;
 
         private readonly Bindable<TConstants> current;
         private readonly TConstants defaultConstants;
@@ -172,7 +179,7 @@ namespace PerformanceCalculatorGUI.Components
 
             Child = new Container
             {
-                Size = new Vector2(560, 650),
+                Size = new Vector2(1000, 650),
                 Padding = new MarginPadding { Horizontal = 16, Vertical = 10 },
                 Child = new OsuScrollContainer(Direction.Vertical)
                 {
@@ -248,7 +255,21 @@ namespace PerformanceCalculatorGUI.Components
 
         private void apply()
         {
-            current.Value = buildTuningFromControls();
+            var newValue = buildTuningFromControls();
+
+            Logger.Log($"[Tuning] Bindable hash={RuntimeHelpers.GetHashCode(current)}", level: LogLevel.Important);
+            Logger.Log($"[Tuning] Bindable.Disabled={current.Disabled}", level: LogLevel.Important);
+            Logger.Log($"[Tuning] Old==Default: {EqualityComparer<TConstants>.Default.Equals(current.Value, defaultConstants)}, New==Default: {EqualityComparer<TConstants>.Default.Equals(newValue, defaultConstants)}, Old==New: {EqualityComparer<TConstants>.Default.Equals(current.Value, newValue)}", level: LogLevel.Important);
+
+            Logger.Log($"[Tuning] Setting to default...", level: LogLevel.Important);
+            current.Value = defaultConstants;
+            Logger.Log($"[Tuning] After default: current={current.Value}", level: LogLevel.Important);
+
+            Logger.Log($"[Tuning] Setting to newValue...", level: LogLevel.Important);
+            current.Value = newValue;
+            Logger.Log($"[Tuning] After newValue: current={current.Value}", level: LogLevel.Important);
+
+            Applied?.Invoke();
 
             this.HidePopover();
         }

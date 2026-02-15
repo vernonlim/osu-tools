@@ -6,6 +6,7 @@ namespace PerformanceCalculatorGUI.Screens.Collections
     public enum CollectionSortCriteria
     {
         None,
+        Target,
         Live,
         Difference,
         Local
