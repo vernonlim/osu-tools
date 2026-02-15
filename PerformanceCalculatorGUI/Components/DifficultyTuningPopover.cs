@@ -44,13 +44,9 @@ namespace PerformanceCalculatorGUI.Components
         private OverlayColourProvider colourProvider { get; set; } = null!;
 
         [Resolved]
-        private SettingsManager configManager { get; set; } = null!;
-
-        [Resolved]
         private NotificationDisplay notificationDisplay { get; set; } = null!;
 
         private readonly List<TuningControl> tuningControls = new List<TuningControl>();
-        private Bindable<string> defaultPathBindable = null!;
         private FileChooserLabelledTextBox tuningFileTextBox = null!;
 
         public DifficultyTuningPopover(Bindable<TConstants> current, TConstants defaultConstants,
@@ -70,7 +66,6 @@ namespace PerformanceCalculatorGUI.Components
         {
             var initialTuning = current.Value;
             tuningControls.Clear();
-            defaultPathBindable = configManager.GetBindable<string>(Settings.DefaultPath);
             string defaultPresetPath = getDefaultPresetPath();
 
             var content = new List<Drawable>
@@ -114,7 +109,7 @@ namespace PerformanceCalculatorGUI.Components
                 Spacing = new Vector2(0, 6f),
                 Children = new Drawable[]
                 {
-                    tuningFileTextBox = new FileChooserLabelledTextBox(defaultPathBindable, ".json")
+                    tuningFileTextBox = new FileChooserLabelledTextBox(new Bindable<string>("params"), ".json")
                     {
                         RelativeSizeAxes = Axes.X,
                         Label = "Preset file",
@@ -344,10 +339,7 @@ namespace PerformanceCalculatorGUI.Components
 
         private string getDefaultPresetPath()
         {
-            if (string.IsNullOrWhiteSpace(defaultPathBindable.Value))
-                return presetFileName;
-
-            return Path.Combine(defaultPathBindable.Value, presetFileName);
+            return Path.Combine("params", presetFileName);
         }
 
         private string? getPresetPath()
