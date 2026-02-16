@@ -1,4 +1,6 @@
 {
+  "DoubleTimeNerf": 0.02,
+  "HalfTimeBuff": 0.05,
   "SrPreMultiplier": 1.0,
   "SrPostMultiplier": 0.88,
   "SrScalerY0": 1.7,
@@ -9,9 +11,9 @@
   "SrScalerY5": 10.2,
   "SrScalerY6": 11.0,
   "SrOffset": 0.0,
-  "ApproachRateSecondConstant": 0.4,
-  "BeginningTimePenaltyPower": 0.3,
-  "BeginningFullPenalty": 0.5,
+  "ApproachRateSecondConstant": 0.44,
+  "BeginningTimePenaltyPower": 0.4,
+  "BeginningFullPenalty": 0.53,
   "DefaultDecayWeight": 0.902,
   "DecayWeights": [
     0.88,
