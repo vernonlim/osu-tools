@@ -14,6 +14,8 @@ namespace PerformanceCalculatorGUI.Configuration
         {
             doubleParam(nameof(CatchDifficultyConstants.FinalPPMultiplier), t => t.FinalPPMultiplier, (t, v) => t with { FinalPPMultiplier = v },
                 minValue: 0.8, maxValue: 1.2),
+            doubleParam(nameof(CatchDifficultyConstants.DoubleTimeNerf), t =>  t.DoubleTimeNerf, (t, v) => t with { DoubleTimeNerf = v },
+                minValue: 0.0, maxValue: 1.0),
             doubleParam(nameof(CatchDifficultyConstants.SrPreMultiplier), t =>  t.SrPreMultiplier, (t, v) => t with { SrPreMultiplier = v },
                 minValue: 0.05, maxValue: 2.0),
             doubleParam(nameof(CatchDifficultyConstants.SrPostMultiplier), t =>  t.SrPostMultiplier, (t, v) => t with { SrPostMultiplier = v },
