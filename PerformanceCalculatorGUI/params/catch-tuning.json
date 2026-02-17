@@ -1,5 +1,5 @@
 {
-  "DoubleTimeNerf": 0.02,
+  "DoubleTimeNerf": 0.025,
   "HalfTimeBuff": 0.05,
   "SrPreMultiplier": 1.0,
   "SrPostMultiplier": 0.88,
