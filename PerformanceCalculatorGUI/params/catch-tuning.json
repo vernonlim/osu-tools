@@ -1,6 +1,8 @@
 {
+  "DoubleTimeNerf": 0.035,
+  "HalfTimeBuff": 0.05,
   "SrPreMultiplier": 1.0,
-  "SrPostMultiplier": 0.88,
+  "SrPostMultiplier": 0.9,
   "SrScalerY0": 1.7,
   "SrScalerY1": 4.55,
   "SrScalerY2": 6.9,
@@ -11,7 +13,7 @@
   "SrOffset": 0.0,
   "ApproachRateSecondConstant": 0.44,
   "BeginningTimePenaltyPower": 0.4,
-  "BeginningFullPenalty": 0.53,
+  "BeginningFullPenalty": 0.56,
   "DefaultDecayWeight": 0.902,
   "DecayWeights": [
     0.88,
@@ -25,9 +27,9 @@
   "LocalStarRatingMaxConstant": 1.06,
   "LocalStarRatingMinConstant": 0.85,
   "LocalStarRatingCorrelationConstant": 0.18,
-  "PerformanceLengthLinearPace": 0.28,
+  "PerformanceLengthLinearPace": 0.24,
   "PerformanceLengthCutoff": 1700.0,
-  "PerformanceLengthLogarithmicPace": 0.25,
+  "PerformanceLengthLogarithmicPace": 0.24,
   "PerformanceValueMultiplier": 1.05,
   "PrecisionRawWeightHyperjumps": 0.92,
   "PrecisionRawWeightHyperjumpAfterJump": 0.98,
@@ -72,7 +74,5 @@
   "PrecisionCorrectionDistanceExponent": 0.6,
   "PrecisionCorrectionTimeExponent": 1.25,
   "PrecisionCorrectionDistanceWeight": 0.3,
-  "DoubleTimeNerf": 0.035,
-  "HalfTimeBuff": 0.05,
-  "FinalPPMultiplier": 1.46
+  "FinalPPMultiplier": 1.44
 }
