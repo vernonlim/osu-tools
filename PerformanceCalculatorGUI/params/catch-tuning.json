@@ -1,5 +1,5 @@
 {
-  "DoubleTimeNerf": 0.025,
+  "DoubleTimeNerf": 0.035,
   "HalfTimeBuff": 0.05,
   "SrPreMultiplier": 1.0,
   "SrPostMultiplier": 0.88,
@@ -34,9 +34,9 @@
   "PrecisionRawWeightJumpAfterHyperjump": 0.98,
   "PrecisionRawWeightJumps": 0.98,
   "PrecisionDelayedWeight": 0.95,
-  "PrecisionStrainAmplitude": 35.5,
+  "PrecisionStrainAmplitude": 33.2,
   "PrecisionStrainShift": -7.0,
-  "PrecisionStrainPace": 32.0,
+  "PrecisionStrainPace": 35.0,
   "PrecisionStrainMultiplier": 52.0,
   "MaxPrecisionCorrection": 1.3,
   "SpeedSnapAmplitude": 19.1,
