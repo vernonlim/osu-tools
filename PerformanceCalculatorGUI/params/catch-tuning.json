@@ -1,6 +1,6 @@
 {
-  "DoubleTimeNerf": 0.035,
-  "HalfTimeBuff": 0.05,
+  "LowSpeedThresholdLSR": 10.0,
+  "UnaffectedPercantagePrecisionLSR": 0.7,
   "SrPreMultiplier": 1.0,
   "SrPostMultiplier": 0.88,
   "SrScalerY0": 1.7,
@@ -38,6 +38,9 @@
   "PrecisionStrainShift": -7.0,
   "PrecisionStrainPace": 35.0,
   "PrecisionStrainMultiplier": 52.0,
+  "HighPrecisionThreshold": 30.0,
+  "HighPrecisionPace": 2.7,
+  "HighPrecisionPower": 1.5,
   "MaxPrecisionCorrection": 1.3,
   "SpeedSnapAmplitude": 19.1,
   "SpeedSnapShift": -10.0,
@@ -69,5 +72,7 @@
   "PrecisionCorrectionDistanceExponent": 0.6,
   "PrecisionCorrectionTimeExponent": 1.25,
   "PrecisionCorrectionDistanceWeight": 0.3,
+  "DoubleTimeNerf": 0.035,
+  "HalfTimeBuff": 0.05,
   "FinalPPMultiplier": 1.46
 }
