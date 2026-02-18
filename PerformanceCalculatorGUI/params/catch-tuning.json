@@ -56,7 +56,7 @@
   "SpeedConsistencyShift": -10.0,
   "SpeedConsistencyPace": 52.0,
   "SpeedConsistencyMultiplier": 1.1,
-  "ReadingHighCsPower": 1.7,
+  "ReadingHighCsPower": 1.8,
   "ReadingHighCsRate": 0.41,
   "ReadingHighCsPenaltyHypers": 0.75,
   "ReadingLocalRhythmPenalty": 0.95,
@@ -74,5 +74,5 @@
   "PrecisionCorrectionDistanceExponent": 0.6,
   "PrecisionCorrectionTimeExponent": 1.25,
   "PrecisionCorrectionDistanceWeight": 0.3,
-  "FinalPPMultiplier": 1.44
+  "FinalPPMultiplier": 1.46
 }
