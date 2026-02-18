@@ -1,6 +1,4 @@
 {
-  "LowSpeedThresholdLSR": 10.0,
-  "UnaffectedPercantagePrecisionLSR": 0.7,
   "SrPreMultiplier": 1.0,
   "SrPostMultiplier": 0.88,
   "SrScalerY0": 1.7,
@@ -22,6 +20,8 @@
     0.71,
     0.65
   ],
+  "LowSpeedThresholdLSR": 10.0,
+  "UnaffectedPercantagePrecisionLSR": 0.7,
   "LocalStarRatingMaxConstant": 1.06,
   "LocalStarRatingMinConstant": 0.85,
   "LocalStarRatingCorrelationConstant": 0.18,
