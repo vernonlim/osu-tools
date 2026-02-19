@@ -42,7 +42,7 @@
   "PrecisionStrainMultiplier": 52.0,
   "HighPrecisionThreshold": 30.0,
   "HighPrecisionPace": 2.7,
-  "HighPrecisionPower": 1.5,
+  "HighPrecisionPower": 1.35,
   "MaxPrecisionCorrection": 1.3,
   "SpeedSnapAmplitude": 19.1,
   "SpeedSnapShift": -10.0,
