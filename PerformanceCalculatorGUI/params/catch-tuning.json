@@ -68,6 +68,7 @@
   "ReadingNonHyperchainPenalty": 0.96,
   "ReadingHighVelocityNerf": 0.1,
   "ReadingHighDistanceBuff": 0.2,
+  "ReadingHighDistancePower": 1.4,
   "ReadingFakeActionBuff": 1.07,
   "ReadingFuturePrecisionBuff": 0.19,
   "StandingWidthAdditiveConstant": 1.24,

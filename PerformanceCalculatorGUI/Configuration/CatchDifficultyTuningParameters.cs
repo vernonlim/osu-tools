@@ -127,6 +127,8 @@ namespace PerformanceCalculatorGUI.Configuration
                 minValue: 0.02, maxValue: 0.25),
             doubleParam(nameof(CatchDifficultyConstants.ReadingHighDistanceBuff), t => t.ReadingHighDistanceBuff, (t, v) => t with { ReadingHighDistanceBuff = v },
                 minValue: 0.01, maxValue: 0.50),
+            doubleParam(nameof(CatchDifficultyConstants.ReadingHighDistancePower), t => t.ReadingHighDistancePower, (t, v) => t with { ReadingHighDistancePower = v },
+                minValue: 1.0, maxValue: 1.8),
             doubleParam(nameof(CatchDifficultyConstants.ReadingFakeActionBuff), t => t.ReadingFakeActionBuff, (t, v) => t with { ReadingFakeActionBuff = v },
                 minValue: 1.00, maxValue: 1.10),
             doubleParam(nameof(CatchDifficultyConstants.ReadingFuturePrecisionBuff), t => t.ReadingFuturePrecisionBuff, (t, v) => t with { ReadingFuturePrecisionBuff = v },
