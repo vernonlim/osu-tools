@@ -143,8 +143,6 @@ namespace PerformanceCalculatorGUI.Configuration
                 minValue: 0.10, maxValue: 0.90),
             doubleParam(nameof(CatchDifficultyConstants.DoubleTimeNerf), t =>  t.DoubleTimeNerf, (t, v) => t with { DoubleTimeNerf = v },
                 minValue: 0.0, maxValue: 1.0),
-            doubleParam(nameof(CatchDifficultyConstants.HalfTimeBuff), t =>  t.HalfTimeBuff, (t, v) => t with { HalfTimeBuff = v },
-                minValue: 0.0, maxValue: 1.0),
         };
 
         private static DifficultyTuningParameter<CatchDifficultyConstants> doubleParam(string propertyName, Func<CatchDifficultyConstants, double> getter,
