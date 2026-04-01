@@ -208,6 +208,7 @@ namespace PerformanceCalculatorGUI.Screens.ObjectInspection
                 new ObjectInspectorDifficultyValue("Key", hitObject.MovementData.KeyPress.ToString()),
                 new ObjectInspectorDifficultyValue("Reading Factor", hitObject.ReadingData.CombinedReadingFactor),
                 new ObjectInspectorDifficultyValue("High CS Factor", hitObject.ReadingData.HighCSFactor),
+                new ObjectInspectorDifficultyValue("High Distance Factor", hitObject.ReadingData.HighDistanceFactor),
                 new ObjectInspectorDifficultyValue("D.C. Weight", hitObject.DisplayData.DirectionChangeWeight),
                 new ObjectInspectorDifficultyValue("P. Correction", hitObject.DisplayData.PrecisionCorrection),
                 new ObjectInspectorDifficultyValue("Action Probability", hitObject.MovementData.ActionProbability),
