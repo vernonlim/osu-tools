@@ -1,6 +1,5 @@
 {
   "DoubleTimeNerf": 0.03,
-  "SrPreMultiplier": 1.0,
   "SrPostMultiplier": 0.87,
   "SrScalerY0": 1.7,
   "SrScalerY1": 4.55,
