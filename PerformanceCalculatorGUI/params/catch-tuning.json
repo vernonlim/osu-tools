@@ -9,7 +9,7 @@
   "SrScalerY5": 10.2,
   "SrScalerY6": 11.0,
   "SrOffset": 0.0,
-  "ApproachRateSecondConstant": 0.33,
+  "ApproachRateSecondConstant": 0.34,
   "BeginningTimePenaltyPower": 0.45,
   "BeginningFullPenalty": 0.6,
   "DefaultDecayWeight": 0.902,
@@ -72,5 +72,5 @@
   "PrecisionCorrectionDistanceExponent": 0.6,
   "PrecisionCorrectionTimeExponent": 1.25,
   "PrecisionCorrectionDistanceWeight": 0.3,
-  "FinalPPMultiplier": 1.5
+  "FinalPPMultiplier": 1.56
 }
