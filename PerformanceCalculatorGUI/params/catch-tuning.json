@@ -9,7 +9,7 @@
   "SrScalerY5": 10.2,
   "SrScalerY6": 11.0,
   "SrOffset": 0.0,
-  "ApproachRateSecondConstant": 0.34,
+  "ApproachRateSecondConstant": 0.37,
   "BeginningTimePenaltyPower": 0.45,
   "BeginningFullPenalty": 0.6,
   "DefaultDecayWeight": 0.902,
@@ -21,13 +21,13 @@
     0.65
   ],
   "LowSpeedThresholdLSR": 7.0,
-  "UnaffectedPercantagePrecisionLSR": 0.5,
+  "UnaffectedPercantagePrecisionLSR": 0.55,
   "LocalStarRatingMaxConstant": 1.06,
   "LocalStarRatingMinConstant": 0.85,
   "LocalStarRatingCorrelationConstant": 0.18,
-  "PerformanceLengthLinearPace": 0.28,
+  "PerformanceLengthLinearPace": 0.26,
   "PerformanceLengthCutoff": 1700.0,
-  "PerformanceLengthLogarithmicPace": 0.28,
+  "PerformanceLengthLogarithmicPace": 0.26,
   "PerformanceValueMultiplier": 1.05,
   "PrecisionRawWeightHyperjumps": 0.94,
   "PrecisionRawWeightHyperjumpAfterJump": 0.98,
@@ -54,8 +54,8 @@
   "SpeedConsistencyShift": -10.0,
   "SpeedConsistencyPace": 52.0,
   "SpeedConsistencyMultiplier": 1.07,
-  "ReadingHighCsPower": 2.5,
-  "ReadingHighCsRate": 0.19,
+  "ReadingHighCsPower": 2.0,
+  "ReadingHighCsRate": 0.18,
   "ReadingHighCsPenaltyHypers": 0.8,
   "ReadingLocalRhythmPenalty": 0.95,
   "ReadingExplicitRhythmPenalty": 0.94,
@@ -72,5 +72,5 @@
   "PrecisionCorrectionDistanceExponent": 0.6,
   "PrecisionCorrectionTimeExponent": 1.25,
   "PrecisionCorrectionDistanceWeight": 0.3,
-  "FinalPPMultiplier": 1.56
+  "FinalPPMultiplier": 1.48
 }
