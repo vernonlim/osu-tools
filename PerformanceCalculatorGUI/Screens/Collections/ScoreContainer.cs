@@ -5,14 +5,19 @@ using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Input.Events;
+using osu.Game.Graphics;
+using osu.Game.Graphics.Sprites;
 using osu.Game.Graphics.UserInterface;
+using osu.Game.Overlays.Profile.Sections;
 using PerformanceCalculatorGUI.Components;
+using PerformanceCalculatorGUI.Components.TextBoxes;
 
 namespace PerformanceCalculatorGUI.Screens.Collections
 {
     public partial class ScoreContainer : Container
     {
-        public ExtendedScore Score { get; }
+        public long ScoreId { get; }
+        public ExtendedScore? Score { get; }
 
         private readonly IconButton deleteButton;
 
@@ -20,11 +25,12 @@ namespace PerformanceCalculatorGUI.Screens.Collections
 
         public event OnDeleteHandler? OnDelete;
 
-        public ScoreContainer(ExtendedScore score)
+        public ScoreContainer(long scoreId, ExtendedScore? score)
         {
             RelativeSizeAxes = Axes.X;
             AutoSizeAxes = Axes.Y;
 
+            ScoreId = scoreId;
             Score = score;
             Child = new GridContainer
             {
@@ -43,10 +49,10 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                             Icon = FontAwesome.Regular.TrashAlt,
                             Action = () =>
                             {
-                                OnDelete?.Invoke((long)score.SoloScore.ID!);
+                                OnDelete?.Invoke(scoreId);
                             }
                         },
-                        new ExtendedProfileScore(score, true)
+                        Score != null ? new ExtendedProfileScore(Score, true) : new NullProfileScore(ScoreId)
                     }
                 }
             };
@@ -69,6 +75,33 @@ namespace PerformanceCalculatorGUI.Screens.Collections
                 .OnComplete(b => b.Margin = new MarginPadding());
 
             base.OnHoverLost(e);
+        }
+
+        private partial class NullProfileScore : ProfileItemContainer
+        {
+            public NullProfileScore(long scoreId)
+            {
+                RelativeSizeAxes = Axes.X;
+                Height = ExtendedProfileScore.HEIGHT;
+
+                CornerRadius = ExtendedLabelledTextBox.CORNER_RADIUS;
+                AddRangeInternal(new Drawable[]
+                {
+                    new OsuSpriteText
+                    {
+                        Anchor = Anchor.Centre,
+                        Origin = Anchor.Centre,
+                        Font = OsuFont.GetFont(size: 14f, weight: FontWeight.Bold),
+                        Text = $"Score ID {scoreId} does not exist."
+                    }
+                });
+            }
+
+            protected override bool OnHover(HoverEvent e)
+            {
+                base.OnHover(e);
+                return false;
+            }
         }
     }
 }
